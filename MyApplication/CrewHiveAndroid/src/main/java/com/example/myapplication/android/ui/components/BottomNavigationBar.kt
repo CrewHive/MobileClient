@@ -37,7 +37,7 @@ object BottomNavigationBarComponent {
                         strokeWidth = (1.dp).toPx(),
                     )
                 }
-                .padding(vertical = 16.dp),
+                .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -76,7 +76,7 @@ object BottomNavigationBarComponent {
     private fun BottomBarIcon(
         icon: Painter,
         onClick: () -> Unit,
-        size: Dp = 34.dp
+        size: Dp = 32.dp
     ) {
         Icon(
             painter = icon,

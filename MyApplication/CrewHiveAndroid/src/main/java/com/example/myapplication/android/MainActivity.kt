@@ -29,6 +29,7 @@ import com.example.myapplication.android.ui.screens.NotificationData
 import com.example.myapplication.android.MyApplicationTheme
 import com.example.myapplication.android.ui.components.BottomNavigationBarComponent.BottomNavigationBar
 import com.example.myapplication.android.ui.components.DrawerContentComponent.DrawerContent
+import com.example.myapplication.android.ui.screens.CalendarScreen
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -69,6 +70,7 @@ class MainActivity : ComponentActivity() {
                             ) {
                                 when (currentScreen) {
                                     "Home" -> HomeScreen()
+                                    "Calendar" -> CalendarScreen()
                                     "Notifications" -> {
                                         if (selectedNotification != null) {
                                             NotificationDetailScreen(
