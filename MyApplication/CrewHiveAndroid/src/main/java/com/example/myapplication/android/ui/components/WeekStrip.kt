@@ -21,21 +21,18 @@ import java.util.*
 @Composable
 fun WeekStrip(
     selectedDate: Calendar,
-    initialWeekStart: Calendar,
-    weekOffset: Int,
     direction: Int,
     onDateSelected: (Calendar, Int) -> Unit,
     onSwipeWeek: (Int) -> Unit
 ) {
     val sdfDayName = remember { SimpleDateFormat("EEE", Locale.getDefault()) }
     val today = remember { Calendar.getInstance() }
-
     val threshold = 50f
     var cumulativeDrag by remember { mutableStateOf(0f) }
 
-    val startDate = remember(initialWeekStart.timeInMillis, weekOffset) {
-        (initialWeekStart.clone() as Calendar).apply {
-            add(Calendar.DAY_OF_MONTH, weekOffset * 7)
+    val startDate = remember(selectedDate.timeInMillis) {
+        (selectedDate.clone() as Calendar).apply {
+            set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
         }
     }
 
@@ -59,7 +56,7 @@ fun WeekStrip(
             }
     ) {
         AnimatedContent(
-            targetState = weekOffset,
+            targetState = startDate.timeInMillis,
             transitionSpec = {
                 (slideInHorizontally { width -> direction * width } + fadeIn())
                     .togetherWith(slideOutHorizontally { width -> -direction * width } + fadeOut())
@@ -124,11 +121,7 @@ fun WeekStrip(
     }
 }
 
-
-
-
-// 🔧 Estensioni
-
+// Estensioni
 fun Calendar.sameDayAs(other: Calendar): Boolean {
     return this.get(Calendar.YEAR) == other.get(Calendar.YEAR) &&
             this.get(Calendar.MONTH) == other.get(Calendar.MONTH) &&
@@ -138,7 +131,3 @@ fun Calendar.sameDayAs(other: Calendar): Boolean {
 fun Calendar.cloneAndAddDays(days: Int): Calendar =
     (this.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, days) }
 
-fun Calendar.sameWeekAs(other: Calendar): Boolean {
-    return this.get(Calendar.WEEK_OF_YEAR) == other.get(Calendar.WEEK_OF_YEAR) &&
-            this.get(Calendar.YEAR) == other.get(Calendar.YEAR)
-}

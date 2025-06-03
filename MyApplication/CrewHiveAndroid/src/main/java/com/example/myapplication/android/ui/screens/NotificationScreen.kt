@@ -78,7 +78,7 @@ fun NotificationScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Notifications",
+                text = "Messaggi",
                 fontSize = 20.sp,
                 color = Color(0xFF5D4037),
                 modifier = Modifier.weight(1f)

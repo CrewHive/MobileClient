@@ -43,14 +43,14 @@ fun HomeScreen() {
         if (!shiftStarted) {
             ShiftButtonsComponent.StartShiftButton { shiftStarted = true }
         } else {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 32.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                ShiftButtonsComponent.ShiftActionButton("Pause shift") { /* TODO */ }
-                ShiftButtonsComponent.ShiftActionButton("End shift") { shiftStarted = false }
+                ShiftButtonsComponent.ShiftActionButton("Vai in pausa") { /* TODO */ }
+                Spacer(modifier = Modifier.height(8.dp))
+                ShiftButtonsComponent.ShiftActionButton("Finisci il turno") { shiftStarted = false }
             }
         }
 

@@ -28,7 +28,7 @@ object TopBarComponent {
         ) {
             Text(
                 modifier = Modifier.padding(16.dp),
-                text = "Company Name",
+                text = "CrewHive",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF5D4037),

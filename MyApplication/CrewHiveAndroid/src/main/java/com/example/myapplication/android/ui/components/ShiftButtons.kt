@@ -25,7 +25,7 @@ object ShiftButtonsComponent {
             shape = RoundedCornerShape(8.dp)
         ) {
             Text(
-                "Start your shift!",
+                "Inizia il turno!",
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp
@@ -53,6 +53,7 @@ object ShiftButtonsComponent {
             colors = ButtonDefaults.buttonColors(Color(0xFFFFC107)),
             modifier = Modifier
                 .padding(horizontal = 4.dp)
+                .fillMaxWidth()
                 .height(48.dp),
             shape = RoundedCornerShape(8.dp)
         ) {

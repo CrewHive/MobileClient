@@ -1,165 +1,565 @@
 package com.example.myapplication.android.ui.screens
 
+import android.util.Log
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.example.myapplication.android.state.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.example.myapplication.android.NavigationSource
+import com.example.myapplication.android.state.LocalCalendarState
 import com.example.myapplication.android.ui.components.*
-import androidx.compose.animation.*
 import java.util.*
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun CalendarScreen() {
-    val initialWeekStart = remember {
-        Calendar.getInstance().apply {
+fun CalendarScreen(screenSource: NavigationSource) {
+    val calendarState = LocalCalendarState.current
+    val currentUser = LocalCurrentUser.current
+    var selectedDate by calendarState.selectedDate
+    val userEvents = calendarState.userEvents
+
+    val today = remember { Calendar.getInstance() }
+    var direction by remember { mutableStateOf(0) }
+    var viewMode by remember { mutableStateOf("D") }
+    val threshold = 50f
+    var cumulativeDrag by remember { mutableStateOf(0f) }
+
+    val shiftTemplates = LocalTemplateState.current
+    var selectedTemplate by remember { mutableStateOf<ShiftTemplate?>(null) }
+    var showParticipantSelection by remember { mutableStateOf(false) }
+    var showStandardDialog by remember { mutableStateOf(false) }
+    var showTemplateMenu by remember { mutableStateOf(false) }
+    var showNewTemplateDialog by remember { mutableStateOf(false) }
+    var showEditTemplateDialog by remember { mutableStateOf(false) }
+
+
+
+    var editingEvent by remember { mutableStateOf<CalendarEvent?>(null) }
+    var showEditDialog by remember { mutableStateOf(false) }
+
+
+    val weekStart = remember(selectedDate.timeInMillis) {
+        (selectedDate.clone() as Calendar).apply {
             set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
         }
     }
 
-    var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
-    var direction by remember { mutableStateOf(0) }
-
-    val threshold = 50f
-    var cumulativeDrag by remember { mutableStateOf(0f) }
-
-    // 🔁 weekOffset calcolato dinamicamente
-    val weekOffset = remember(selectedDate.timeInMillis) {
-        calculateWeekOffset(initialWeekStart, selectedDate)
+    // Popola eventi una sola volta
+    LaunchedEffect(Unit) {
+        if (userEvents.isEmpty()) {
+            val start = (Calendar.getInstance().clone() as Calendar).apply {
+                add(Calendar.MONTH, -6)
+                set(Calendar.DAY_OF_MONTH, 1)
+            }
+            repeat(365) { offset ->
+                val date = (start.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, offset) }
+                val generated = generateEventsFor(date)
+                generated.forEach { ev ->
+                    if (userEvents.none { it.title == ev.title && it.date.sameDayAs(ev.date) }) {
+                        userEvents.add(ev)
+                    }
+                }
+            }
+        }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.White)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(Color(0xFFFAF7C7))
-                    .padding(horizontal = 10.dp)
-            ) {
-                TopBarWithDate(selectedDate = selectedDate)
-                Spacer(modifier = Modifier.height(16.dp))
+    val visibleEvents = if (screenSource == NavigationSource.Drawer) {
+        userEvents.filter { it.participants.isNotEmpty() }
+    } else {
+        userEvents.filter {
+            it.participants.isEmpty() || it.participants.contains(currentUser.value)
+        }
+    }
 
-                WeekStrip(
+
+
+    val userDayEvents = visibleEvents.filter { it.date.sameDayAs(selectedDate) }
+    val userWeekEvents = visibleEvents.filter { it.date.sameWeekAs(selectedDate) }
+    val userMonthEvents = visibleEvents.filter {
+        it.date.get(Calendar.MONTH) == selectedDate.get(Calendar.MONTH) &&
+                it.date.get(Calendar.YEAR) == selectedDate.get(Calendar.YEAR)
+    }
+
+
+    Box(modifier = Modifier.fillMaxSize().background(Color.White)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxWidth().background(Color(0xFFFAF7C7)).padding(horizontal = 8.dp)) {
+                TopBarWithDate(
                     selectedDate = selectedDate,
-                    initialWeekStart = initialWeekStart,
-                    weekOffset = weekOffset,
-                    direction = direction,
-                    onDateSelected = { newDate, newDirection ->
-                        direction = newDirection
-                        selectedDate = newDate
-                    },
-                    onSwipeWeek = { swipeDirection ->
-                        direction = swipeDirection
-                        selectedDate = selectedDate.cloneAndAddDays(7 * swipeDirection)
-                    }
+                    onModeChange = { mode -> viewMode = mode },
+                    viewMode = viewMode
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
-            }
 
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures(
-                            onHorizontalDrag = { _, dragAmount ->
-                                cumulativeDrag += dragAmount
-                            },
-                            onDragEnd = {
-                                val newDate = when {
-                                    cumulativeDrag < -threshold -> {
-                                        direction = 1
-                                        selectedDate.cloneAndAddDays(1)
-                                    }
-                                    cumulativeDrag > threshold -> {
-                                        direction = -1
-                                        selectedDate.cloneAndAddDays(-1)
-                                    }
-                                    else -> selectedDate
-                                }
-
-                                if (!newDate.sameDayAs(selectedDate)) {
-                                    selectedDate = newDate
-                                }
-                                cumulativeDrag = 0f
+                if (viewMode == "D") {
+                    WeekStrip(
+                        selectedDate = selectedDate,
+                        direction = direction,
+                        onDateSelected = { newDate, newDirection ->
+                            direction = newDirection
+                            selectedDate = newDate
+                        },
+                        onSwipeWeek = { swipeDirection ->
+                            direction = swipeDirection
+                            selectedDate = selectedDate.cloneAndAddDays(7 * swipeDirection)
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                } else if (viewMode == "W") {
+                    AnimatedContent(
+                        targetState = selectedDate.get(Calendar.WEEK_OF_YEAR) + selectedDate.get(Calendar.YEAR) * 100,
+                        transitionSpec = {
+                            (slideInHorizontally { width -> direction * width } + fadeIn())
+                                .togetherWith(slideOutHorizontally { width -> -direction * width } + fadeOut())
+                        },
+                        label = "Weekly Header Animation"
+                    ) {
+                        WeeklyHeader(
+                            weekStart = weekStart,
+                            selectedDate = selectedDate,
+                            onDayClick = { selectedDate = it },
+                            onSwipeWeek = { delta ->
+                                direction = delta
+                                selectedDate = selectedDate.cloneAndAddDays(7 * delta)
                             }
                         )
                     }
+                } else if (viewMode == "M") {
+            var cumulativeMonthDrag by remember { mutableStateOf(0f) }
+            val calendarForMonth = (selectedDate.clone() as Calendar).apply {
+                set(Calendar.DAY_OF_MONTH, 1)
+            }
+
+            Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onHorizontalDrag = { _, dragAmount ->
+                                    cumulativeMonthDrag += dragAmount
+                                },
+                                onDragEnd = {
+                                    when {
+                                        cumulativeMonthDrag < -50f -> {
+                                            direction = 1
+                                            selectedDate =
+                                                (selectedDate.clone() as Calendar).apply {
+                                                    add(Calendar.MONTH, 1)
+                                                }
+                                        }
+
+                                        cumulativeMonthDrag > 50f -> {
+                                            direction = -1
+                                            selectedDate =
+                                                (selectedDate.clone() as Calendar).apply {
+                                                    add(Calendar.MONTH, -1)
+                                                }
+                                        }
+                                    }
+                                    cumulativeMonthDrag = 0f
+                                }
+                            )
+                        }
+                ) {
+                    AnimatedContent(
+                        targetState = selectedDate.get(Calendar.MONTH) + selectedDate.get(
+                            Calendar.YEAR
+                        ) * 12,
+                        transitionSpec = {
+                            (slideInHorizontally { width -> direction * width } + fadeIn())
+                                .togetherWith(slideOutHorizontally { width -> -direction * width } + fadeOut())
+                        },
+                        label = "Monthly Swipe"
+                    ) {
+                        MonthlyCalendarGridView(
+                            monthCalendar = calendarForMonth,
+                            selectedDate = selectedDate,
+                            events = userMonthEvents,
+                            onDayClick = { clickedDate -> selectedDate = clickedDate }
+                        )
+                    }
+                }
+            }
+        }
+        }
+
+            if (viewMode == "D") {
+                Box(
+                    modifier = Modifier.weight(1f).fillMaxWidth()
+                        .padding(top = 8.dp, end = 8.dp)
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onHorizontalDrag = { _, dragAmount -> cumulativeDrag += dragAmount },
+                                onDragEnd = {
+                                    val newDate = when {
+                                        cumulativeDrag < -threshold -> selectedDate.cloneAndAddDays(1).also { direction = 1 }
+                                        cumulativeDrag > threshold -> selectedDate.cloneAndAddDays(-1).also { direction = -1 }
+                                        else -> selectedDate
+                                    }
+                                    if (!newDate.sameDayAs(selectedDate)) selectedDate = newDate
+                                    cumulativeDrag = 0f
+                                }
+                            )
+                        }
+                ) {
+                    AnimatedContent(
+                        targetState = selectedDate.timeInMillis,
+                        transitionSpec = {
+                            (slideInHorizontally { width -> direction * width } + fadeIn())
+                                .togetherWith(slideOutHorizontally { width -> -direction * width } + fadeOut())
+                        },
+                        label = "Day Animation"
+                    ) {
+                        EventList(
+                            events = userDayEvents,
+                            showParticipants = screenSource == NavigationSource.Drawer,
+                            onDelete = { event -> userEvents.remove(event) },
+                            onReport = {},
+                            onEdit = { selectedEvent ->
+                                editingEvent = selectedEvent
+                                showEditDialog = true
+                            }
+                        )
+                    }
+                }
+            } else if (viewMode == "W") {
+                var cumulativeWeekDrag by remember { mutableStateOf(0f) }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(end = 8.dp)
+                        .background(Color.White)
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onHorizontalDrag = { _, dragAmount ->
+                                    cumulativeWeekDrag += dragAmount
+                                },
+                                onDragEnd = {
+                                    when {
+                                        cumulativeWeekDrag < -threshold -> {
+                                            direction = 1
+                                            selectedDate = selectedDate.cloneAndAddDays(7)
+                                        }
+
+                                        cumulativeWeekDrag > threshold -> {
+                                            direction = -1
+                                            selectedDate = selectedDate.cloneAndAddDays(-7)
+                                        }
+                                    }
+                                    cumulativeWeekDrag = 0f
+                                }
+                            )
+                        }
+                ) {
+                    AnimatedContent(
+                        targetState = selectedDate.get(Calendar.WEEK_OF_YEAR) + selectedDate.get(
+                            Calendar.YEAR
+                        ) * 100,
+                        transitionSpec = {
+                            (slideInHorizontally { width -> direction * width } + fadeIn())
+                                .togetherWith(slideOutHorizontally { width -> -direction * width } + fadeOut())
+                        },
+                        label = "Weekly Grid Animation"
+                    ) {
+
+                        WeeklyEventGrid(
+                            weekStart = weekStart,
+                            events = userWeekEvents,
+                            showParticipants = screenSource == NavigationSource.Drawer,
+                            onEdit = { selectedEvent ->
+                                editingEvent = selectedEvent
+                                showEditDialog = true
+                            }
+                        )
+                    }
+                }
+            } else if (viewMode == "M") {
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .background(Color.White)
+                        .padding(horizontal = 16.dp)
+                        .pointerInput(Unit) {
+                            detectHorizontalDragGestures(
+                                onHorizontalDrag = { _, dragAmount ->
+                                    cumulativeDrag += dragAmount
+                                },
+                                onDragEnd = {
+                                    val newDate = when {
+                                        cumulativeDrag < -threshold -> {
+                                            direction = 1
+                                            selectedDate.cloneAndAddDays(1)
+                                        }
+
+                                        cumulativeDrag > threshold -> {
+                                            direction = -1
+                                            selectedDate.cloneAndAddDays(-1)
+                                        }
+
+                                        else -> selectedDate
+                                    }
+                                    if (!newDate.sameDayAs(selectedDate)) {
+                                        selectedDate = newDate
+                                    }
+                                    cumulativeDrag = 0f
+                                }
+                            )
+                        }
+                ) {
+                    AnimatedContent(
+                        targetState = selectedDate.timeInMillis,
+                        transitionSpec = {
+                            (slideInHorizontally { width -> direction * width } + fadeIn())
+                                .togetherWith(slideOutHorizontally { width -> -direction * width } + fadeOut())
+                        },
+                        label = "Day Animation"
+                    ) {
+                        DailyEventList(
+                            events = userDayEvents,
+                            showParticipants = screenSource == NavigationSource.Drawer,
+                            onEdit = { event ->
+                                editingEvent = event
+                                showEditDialog = true
+                            }
+                        )
+                    }
+                }
+            }
+
+        }
+
+        // Floating Button logica completa
+        if (screenSource == NavigationSource.Drawer) {
+            FloatingTemplateMenu(
+                visible = showTemplateMenu,
+                templates = shiftTemplates,
+                onTemplateClick = { template ->
+                    Log.d("CalendarScreen", "Evento selezionato: $selectedTemplate")
+                    selectedTemplate = template
+                    showParticipantSelection = true
+                    showTemplateMenu = false
+                },
+                onTemplateLongClick = { template ->
+                    selectedTemplate = template
+                    showEditTemplateDialog = true
+                },
+                onNewClick = { showNewTemplateDialog = true },
+                onEditClick = { showStandardDialog = true }
+            )
+
+            FloatingAddButton(onClick = { showTemplateMenu = !showTemplateMenu })
+        } else {
+            FloatingAddButton(onClick = { showStandardDialog = true })
+        }
+
+        if (showStandardDialog) {
+            FullscreenPopupDialog(
+                onDismiss = { showStandardDialog = false },
+                onAddEvent = { userEvents.add(it); showStandardDialog = false },
+                selectedDate = selectedDate
+            )
+        }
+        if (showNewTemplateDialog) {
+            TemplatePrivatePopup(
+                onDismiss = { showNewTemplateDialog = false },
+                onSave = { shiftTemplates.add(it); showNewTemplateDialog = false },
+                selectedDate = selectedDate
+            )
+        }
+        if (showEditTemplateDialog && selectedTemplate != null) {
+            TemplatePublicPopup(
+                template = selectedTemplate!!,
+                onDismiss = {
+                    showEditTemplateDialog = false
+                    selectedTemplate = null
+                },
+                onSave = {
+                    shiftTemplates.removeIf { it.title == it.title }
+                    shiftTemplates.add(it)
+                    showEditTemplateDialog = false
+                    selectedTemplate = null
+                },
+                onDelete = {
+                    shiftTemplates.removeIf { it.title == selectedTemplate?.title }
+                    showEditTemplateDialog = false
+                    selectedTemplate = null
+                }
+            )
+        }
+    val showResetButton = remember(viewMode, selectedDate.timeInMillis) {
+        when (viewMode) {
+            "D" -> !selectedDate.sameWeekAs(today)
+            "W" -> selectedDate.get(Calendar.WEEK_OF_YEAR) != today.get(Calendar.WEEK_OF_YEAR)
+            "M" -> !(selectedDate.get(Calendar.MONTH) == today.get(Calendar.MONTH) &&
+                    selectedDate.get(Calendar.YEAR) == today.get(Calendar.YEAR))
+            else -> false
+        }
+    }
+
+        if (showResetButton) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 16.dp, bottom = 16.dp),
+                contentAlignment = Alignment.BottomStart
             ) {
-                AnimatedContent(
-                    targetState = selectedDate.timeInMillis,
-                    transitionSpec = {
-                        (slideInHorizontally { width -> direction * width } + fadeIn())
-                            .togetherWith(slideOutHorizontally { width -> -direction * width } + fadeOut())
+                FloatingActionButton(
+                    onClick = {
+                        direction = 0
+                        selectedDate = Calendar.getInstance()
                     },
-                    label = "Day Animation"
-                ) { _ ->
-                    val events = generateEventsFor(selectedDate)
-                    EventList(events = events)
+                    containerColor = Color(0xFF5D4037),
+                    shape = CircleShape
+                ) {
+                    Text("Oggi", color = Color.White, fontSize = 14.sp)
                 }
             }
         }
 
-        FloatingAddButton(onClick = {
-            // TODO: open add event dialog
-        })
+    }
+    if (showEditDialog && editingEvent != null) {
+        EditablePopupDialog(
+            eventToEdit = editingEvent!!,
+            onDismiss = { showEditDialog = false },
+            onUpdateEvent = { updated ->
+                userEvents.removeIf { it == editingEvent }
+                userEvents.add(updated)
+                showEditDialog = false
+            }
+        )
+    }
+    if (showParticipantSelection && selectedTemplate != null) {
+
+        val generatedEvents=visibleEvents.filter { it.date.sameWeekAs(selectedDate) } +
+                (0..6).flatMap { offset ->
+                    val date = (weekStart.clone() as Calendar).apply {
+                        add(Calendar.DAY_OF_MONTH, offset)
+                    }
+                    generateEventsFor(date)
+                }
+        val nextWeek = (selectedDate.clone() as Calendar).apply {
+            add(Calendar.WEEK_OF_YEAR, 1)
+        }
+        val generatedEventsDayAfter=visibleEvents.filter { it.date.sameWeekAs(nextWeek) } +
+                (0..6).flatMap { offset ->
+                    val date = (weekStart.clone() as Calendar).apply {
+                        add(Calendar.DAY_OF_MONTH, offset)
+                    }
+                    generateEventsFor(date)
+                }
+
+        val events = generatedEvents + generatedEventsDayAfter
+
+
+
+
+        ShiftParticipantSelectionScreen(
+            shiftTemplate = selectedTemplate!!,
+            selectedDate = selectedDate,
+            onDateChange = { selectedDate = it },
+            onBack = {
+                showParticipantSelection = false
+                selectedTemplate = null
+            },
+            onConfirm = { newEvent ->
+                userEvents.add(newEvent)
+                showParticipantSelection = false
+                selectedTemplate = null
+            },
+            events = userWeekEvents
+        )
     }
 }
 
+
 fun generateEventsFor(date: Calendar): List<CalendarEvent> {
     val random = kotlin.random.Random(date.get(Calendar.DAY_OF_YEAR))
-
-    val possibleColors = listOf(
-        Color(0xFF81C784), // green
-        Color(0xFF64B5F6), // blue
-        Color(0xFFFFB74D), // orange
-        Color(0xFFBA68C8), // purple
-        Color(0xFFE57373)  // red
-    )
-    val titles = listOf("Meeting", "Workout", "Review", "Design", "Call", "Sync", "Interview", "Briefing")
-    val descriptions = listOf("Team sync", "Strategy", "Follow up", "Feature talk", "Bug review", "Demo prep")
+    val participants = GlobalParticipants.list
 
     val events = mutableListOf<CalendarEvent>()
 
-    // Genera tra 2 e 20 eventi
-    val count = 2 + random.nextInt(10)
+    // Turni standard
+    val shifts = listOf(
+        Triple("Turno Mattutino", "08:00", "14:00"),
+        Triple("Turno Pomeridiano", "14:00", "20:00"),
+        Triple("Turno Serale", "20:00", "02:00")
+    )
 
-    repeat(count) {
-        val startHour = 6 + random.nextInt(16) // 6–21
-        val startMinute = listOf(0, 15, 30, 45).random(random)
-        val durationMinutes = listOf(30, 45, 60, 90, 120).random(random)
-        val endMinutesTotal = startHour * 60 + startMinute + durationMinutes
+    val shiftColors = listOf(
+        Color(0xFF64B5F6), // blu chiaro
+        Color(0xFFFFB74D), // arancione
+        Color(0xFFBA68C8)  // viola
+    )
 
-        val endHour = endMinutesTotal / 60
-        val endMinute = endMinutesTotal % 60
+    // Rotazione settimanale dei turni
+    val weekNumber = date.get(Calendar.WEEK_OF_YEAR)
+    val participantsPerShift = (participants.size / 3).coerceAtLeast(1)
 
-        // Blocca evento entro le 22:00
-        if (endHour > 22 || (endHour == 22 && endMinute > 0)) return@repeat
+    shifts.forEachIndexed { index, (title, start, end) ->
+        val shiftOffset = (weekNumber + index) % 3
+        val shiftGroup = participants.shuffled(random)
+            .drop(shiftOffset * participantsPerShift)
+            .take(participantsPerShift)
 
-        val format = { h: Int, m: Int -> "%02d:%02d".format(h, m) }
+        events.add(
+            CalendarEvent(
+                startTime = start,
+                endTime = end,
+                title = title,
+                description = "Presidio reparto ${'A' + index}",
+                color = shiftColors[index % shiftColors.size],
+                date = date.clone() as Calendar,
+                participants = shiftGroup
+            )
+        )
+    }
 
-        val startTime = format(startHour, startMinute)
-        val endTime = format(endHour, endMinute)
-        val color = possibleColors.random(random)
-        val title = titles.random(random)
-        val description = descriptions.random(random)
+    // Evento extra opzionale
+    if (random.nextFloat() < 0.4f) {
+        val extraTitles = listOf("Team Meeting", "Briefing", "Formazione", "Aggiornamento Sicurezza")
+        val extraDescriptions = listOf(
+            "Aggiornamenti sul progetto corrente",
+            "Sincronizzazione con il team",
+            "Sessione di formazione obbligatoria",
+            "Revisione procedure di sicurezza"
+        )
+        val timeSlots = listOf("10:00" to "11:00", "15:00" to "16:00", "12:00" to "13:00")
 
-        events.add(CalendarEvent(startTime, endTime, title, description, color))
+        val idx = random.nextInt(extraTitles.size)
+        val (start, end) = timeSlots.random(random)
+        val extraParticipants = participants.shuffled(random).take(3 + random.nextInt(3))
+
+        events.add(
+            CalendarEvent(
+                startTime = start,
+                endTime = end,
+                title = extraTitles[idx],
+                description = extraDescriptions[idx],
+                color = Color(0xFFE57373), // rosso
+                date = date.clone() as Calendar,
+                participants = extraParticipants
+            )
+        )
     }
 
     return events
 }
+
 
 
 fun calculateWeekOffset(start: Calendar, target: Calendar): Int {
@@ -175,3 +575,9 @@ fun Calendar.sameDayAs(other: Calendar): Boolean {
             get(Calendar.MONTH) == other.get(Calendar.MONTH) &&
             get(Calendar.DAY_OF_MONTH) == other.get(Calendar.DAY_OF_MONTH)
 }
+
+fun Calendar.sameWeekAs(other: Calendar): Boolean {
+    return this.get(Calendar.WEEK_OF_YEAR) == other.get(Calendar.WEEK_OF_YEAR) &&
+            this.get(Calendar.YEAR) == other.get(Calendar.YEAR)
+}
+

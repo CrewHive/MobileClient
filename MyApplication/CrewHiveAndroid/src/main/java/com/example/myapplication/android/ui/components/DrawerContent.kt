@@ -16,49 +16,77 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 
-object DrawerContentComponent {
-    @Composable
-    fun DrawerContent(onClose: () -> Unit) {
-        Column(
+@Composable
+fun DrawerContent(
+    onClose: () -> Unit,
+    onDestinationSelected: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .width(280.dp)
+            .background(Color.White)
+            .padding(16.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Close,
+            contentDescription = "Close Drawer",
+            tint = Color(0xFFFFC107),
             modifier = Modifier
-                .width(280.dp)
-                .background(Color.White)
-                .padding(16.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Close Drawer",
-                tint = Color(0xFFFFC107),
-                modifier = Modifier
-                    .align(Alignment.Start)
-                    .clickable { onClose() }
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+                .align(Alignment.Start)
+                .clickable { onClose() }
+        )
+        Spacer(modifier = Modifier.height(16.dp))
 
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Profile Picture",
-                tint = Color(0xFFFFC107),
-                modifier = Modifier
-                    .size(80.dp)
-                    .align(Alignment.CenterHorizontally)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text("Johanna Doe", fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
-            Text("johanna@company.com", color = Color.Gray, modifier = Modifier.align(Alignment.CenterHorizontally))
-            Spacer(modifier = Modifier.height(24.dp))
+        Icon(
+            imageVector = Icons.Default.AccountCircle,
+            contentDescription = "Profile Picture",
+            tint = Color(0xFFFFC107),
+            modifier = Modifier
+                .size(80.dp)
+                .align(Alignment.CenterHorizontally)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Giulia Verdi",
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+        Text(
+            "giuliaverdi@gmail.com",
+            color = Color.Gray,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
 
-            DrawerMenuItem(Icons.Default.Home, "Home") { /* TODO */ }
-            DrawerMenuItem(Icons.Default.Info, "Reports") { /* TODO */ }
-            DrawerMenuItem(Icons.Default.Person, "Employees") { /* TODO */ }
-            DrawerMenuItem(Icons.Default.Settings, "Shift manager") { /* TODO */ }
-            DrawerMenuItem(Icons.Default.MailOutline, "Communication") { /* TODO */ }
+        DrawerMenuItem(Icons.Default.Home, "Home") {
+            onDestinationSelected("Home")
+            onClose()
+        }
+        DrawerMenuItem(Icons.Default.Info, "Notifiche") {
+            onDestinationSelected("Notifications")
+            onClose()
+        }
+        DrawerMenuItem(Icons.Default.Person, "Profilo") {
+            onDestinationSelected("Profile")
+            onClose()
+        }
+        DrawerMenuItem(Icons.Default.Settings, "Gestionale turni") {
+            onDestinationSelected("Calendar")
+            onClose()
+        }
+        DrawerMenuItem(Icons.Default.MailOutline, "Comunicazioni") {
+            // Puoi aggiungere un'altra voce se implementi questa schermata
+        }
 
-            Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(1f))
 
-            DrawerMenuItem(Icons.Default.Settings, "Settings") { /* TODO */ }
+        DrawerMenuItem(Icons.Default.Settings, "Impostazioni") {
+            // opzionale
         }
     }
+}
+
 
     @Composable
     private fun DrawerMenuItem(icon: ImageVector, label: String, onClick: () -> Unit) {
@@ -74,5 +102,5 @@ object DrawerContentComponent {
             Text(label, fontSize = 16.sp, color = Color(0xFF5D4037))
         }
     }
-}
+
 

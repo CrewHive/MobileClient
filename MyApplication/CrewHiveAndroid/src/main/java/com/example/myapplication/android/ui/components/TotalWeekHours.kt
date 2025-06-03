@@ -21,7 +21,7 @@ object TotalWeekHoursComponent {
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
-                text = "Total week hours:",
+                text = "Ore settimanali totali:",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF5D4037)

@@ -3,6 +3,8 @@
 
     <application
         android:allowBackup="false"
+        android:label="@string/CrewHive"
+        android:icon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity

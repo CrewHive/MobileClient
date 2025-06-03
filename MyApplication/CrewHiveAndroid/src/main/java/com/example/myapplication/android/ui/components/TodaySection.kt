@@ -1,26 +1,57 @@
+// FILE: TodaySectionComponent.kt
 package com.example.myapplication.android.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.zIndex
+import com.example.myapplication.android.state.LocalCalendarState
+import com.example.myapplication.android.state.LocalCurrentUser
+import com.example.myapplication.android.ui.screens.generateEventsFor
+import java.util.*
 
 object TodaySectionComponent {
 
     @Composable
     fun TodaySection() {
+        val calendarState = LocalCalendarState.current
+        val currentUser = LocalCurrentUser.current
+        val today = remember { Calendar.getInstance() }
+
+        val generated = generateEventsFor(today)
+        val userEvents = calendarState.userEvents.filter { it.date.sameDayAs(today) }
+
+        val filteredGenerated = generated.filter { gen ->
+            userEvents.none {
+                it.title == gen.title &&
+                        it.startTime == gen.startTime &&
+                        it.endTime == gen.endTime &&
+                        it.date.sameDayAs(gen.date)
+            }
+        }
+
+        val allEvents = userEvents + filteredGenerated
+
+        val visibleEvents = allEvents.filter { it.participants.contains(currentUser.value) }
+
+
         Column(modifier = Modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = "Today",
+                text = "Oggi",
                 fontSize = 30.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF5D4037)
@@ -28,63 +59,57 @@ object TodaySectionComponent {
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            EventCard("Morning shift", "7:30 AM", "10:00 AM", Color(0xFF9C27B0))
-            EventCard("Meeting", "10:00 AM", "11:00 AM", Color(0xFF00BCD4))
-            EventCard("Morning shift", "11:00 AM", "1:00 PM", Color(0xFF9C27B0))
+            visibleEvents.sortedBy { it.startTime }.forEach {
+                CalendarEventItem1(it, modifier = Modifier.height(120.dp).padding(bottom = 8.dp))
+            }
         }
-    }
-
-    fun calculateDuration(start: String, end: String): Float {
-        fun parseTime(time: String): Int {
-            val parts = time.split(" ", ":")
-            val hour = parts[0].toInt()
-            val minute = parts[1].toInt()
-            val isPM = parts[2] == "PM"
-            return (if (hour == 12) 0 else hour * 60) + minute + if (isPM) 12 * 60 else 0
-        }
-
-        val startMinutes = parseTime(start)
-        val endMinutes = parseTime(end)
-
-        val duration = endMinutes - startMinutes
-        return duration / 60f
     }
 
     @Composable
-    private fun EventCard(title: String, startTime: String, endTime: String, indicatorColor: Color) {
-        val duration = calculateDuration(startTime, endTime)
-        val heightPerHour = 60.dp
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 15.dp)
-                .padding(vertical = 4.dp)
-                .height(heightPerHour * duration)
-                .background(Color(0xFFFFF9C4), shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+    fun CalendarEventItem1(
+        event: CalendarEvent,
+        modifier: Modifier = Modifier
+    ) {
+        Box(modifier = modifier) {
             Box(
                 modifier = Modifier
-                    .width(6.dp)
+                    .width(12.dp)
                     .fillMaxHeight()
-                    .background(indicatorColor, shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp))
+                    .background(
+                        color = event.color,
+                        shape = RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
+                    )
+                    .zIndex(1f)
             )
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, fontWeight = FontWeight.Bold, color = Color(0xFF5D4037))
-                Text(text = "$startTime - $endTime", fontSize = 12.sp, color = Color(0xFF5D4037))
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(6.dp, Color(0xFFFAF7C7), RoundedCornerShape(8.dp))
+                    .background(Color.White, shape = RoundedCornerShape(8.dp))
+                    .padding(20.dp, 8.dp, 6.dp, 6.dp)
+            ) {
+                Column(
+                    modifier = Modifier.align(Alignment.CenterVertically)
+                ) {
+                    Text(
+                        text = event.title,
+                        fontSize = 16.sp,
+                        color = Color(0xFF5D4037)
+                    )
+                    Text(
+                        text = "${event.startTime} - ${event.endTime}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF7D4F16).copy(alpha = 0.84f),
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = event.description,
+                        fontSize = 14.sp,
+                        color = Color.DarkGray
+                    )
+                }
             }
-
-            Icon(
-                imageVector = Icons.Default.MoreVert,
-                contentDescription = "More",
-                tint = Color(0xFFFFC107)
-            )
         }
     }
 }
-

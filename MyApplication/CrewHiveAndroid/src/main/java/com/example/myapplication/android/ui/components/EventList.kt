@@ -21,8 +21,11 @@ data class CalendarEvent(
     val endTime: String,
     val title: String,
     val description: String,
-    val color: Color
+    val color: Color,
+    val date: Calendar,
+    val participants: List<String> = emptyList() // ← aggiunto
 )
+
 
 data class PositionedEvent(
     val event: CalendarEvent,
@@ -31,10 +34,16 @@ data class PositionedEvent(
 )
 
 private val hourRange = 6..22
-private val hourHeight = 80.dp
+private val hourHeight = 58.dp
 
 @Composable
-fun EventList(events: List<CalendarEvent>) {
+fun EventList(
+    events: List<CalendarEvent>,
+    showParticipants: Boolean = false,
+    onDelete: ((CalendarEvent) -> Unit)? = null,
+    onReport: ((CalendarEvent) -> Unit)? = null,
+    onEdit: ((CalendarEvent) -> Unit)? = null
+) {
     val scrollState = rememberScrollState()
     val positionedEvents = resolveEventPositionsWithGrouping(events)
     val density = LocalDensity.current
@@ -49,8 +58,6 @@ fun EventList(events: List<CalendarEvent>) {
         val containerWidth = (constraints.maxWidth - with(density) { 40.dp.toPx() })
 
         Row(modifier = Modifier.height(totalHeight)) {
-
-            // COLONNA ORARIA (08:00, 09:00, ...)
             Column(
                 modifier = Modifier
                     .width(40.dp)
@@ -72,13 +79,11 @@ fun EventList(events: List<CalendarEvent>) {
                 }
             }
 
-            // COLONNA EVENTI
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(totalHeight)
             ) {
-                // LINEE ORARIE DI SFONDO (sotto agli eventi)
                 hourRange.forEach { hour ->
                     Box(
                         modifier = Modifier
@@ -89,7 +94,6 @@ fun EventList(events: List<CalendarEvent>) {
                     )
                 }
 
-                // EVENTI POSIZIONATI
                 positionedEvents.forEach { positioned ->
                     val (startMin, durationMin) = calculateDuration(positioned.event)
                     val topOffsetDp = ((startMin - hourRange.first * 60) / 60f) * hourHeight.value
@@ -105,12 +109,16 @@ fun EventList(events: List<CalendarEvent>) {
                         modifier = Modifier
                             .offset(x = xOffset, y = topOffset)
                             .width(with(density) { columnWidth.toDp() })
-                            .height(height.coerceAtLeast(32.dp)) // altezza minima evento
+                            .height(height.coerceAtLeast(32.dp))
                             .padding(1.dp)
                     ) {
                         CalendarEventItem(
                             event = positioned.event,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            showParticipants = showParticipants,
+                            onDelete = { onDelete?.invoke(positioned.event) },
+                            onReport = { onReport?.invoke(positioned.event) },
+                            onEdit = onEdit
                         )
                     }
                 }
@@ -120,7 +128,7 @@ fun EventList(events: List<CalendarEvent>) {
 }
 
 
-private fun resolveEventPositionsWithGrouping(events: List<CalendarEvent>): List<PositionedEvent> {
+fun resolveEventPositionsWithGrouping(events: List<CalendarEvent>): List<PositionedEvent> {
     val visited = mutableSetOf<CalendarEvent>()
     val result = mutableListOf<PositionedEvent>()
 
@@ -181,7 +189,7 @@ private fun collectConnectedEvents(
     }
 }
 
-private fun calculateDuration(event: CalendarEvent): Pair<Int, Float> {
+fun calculateDuration(event: CalendarEvent): Pair<Int, Float> {
     val format = SimpleDateFormat("HH:mm", Locale.getDefault())
     return try {
         val start = format.parse(event.startTime)

@@ -29,7 +29,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            //put your multiplatform dependencies here
+            implementation("com.russhwolf:multiplatform-settings:1.0.0")
+
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
