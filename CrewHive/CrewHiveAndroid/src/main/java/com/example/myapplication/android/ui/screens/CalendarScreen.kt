@@ -1,5 +1,6 @@
 package com.example.myapplication.android.ui.screens
 
+import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
@@ -36,6 +37,7 @@ import com.example.myapplication.android.ui.components.navigation.ShiftTemplate
 import com.example.myapplication.android.ui.theme.CustomTheme
 import java.util.*
 
+@SuppressLint("UnusedContentLambdaTargetStateParameter")
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun CalendarScreen(screenSource: NavigationSource) {

@@ -16,11 +16,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.example.myapplication.android.ui.theme.CustomTheme
+import kotlinx.coroutines.Job
 
 @Composable
 fun DrawerContent(
     onClose: () -> Unit,
-    onDestinationSelected: (String) -> Unit
+    onDestinationSelected: (String) -> Unit,
+    onLogoutClicked: () -> Job
 ) {
     val colors = CustomTheme.colors
 
@@ -81,11 +83,15 @@ fun DrawerContent(
         DrawerMenuItem(Icons.Default.MailOutline, "Comunicazioni") {
             // Puoi aggiungere un'altra voce se implementi questa schermata
         }
+        DrawerMenuItem(Icons.Default.MailOutline, "Employees") {
+            onDestinationSelected("Employees")
+            onClose()
+        }
 
         Spacer(modifier = Modifier.weight(1f))
 
-        DrawerMenuItem(Icons.Default.Settings, "Impostazioni") {
-            // opzionale
+        DrawerMenuItem(Icons.Default.Settings, "Log Out") {
+            onLogoutClicked()
         }
     }
 }

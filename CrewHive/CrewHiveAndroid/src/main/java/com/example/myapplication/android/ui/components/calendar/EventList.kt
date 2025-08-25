@@ -1,5 +1,6 @@
 package com.example.myapplication.android.ui.components.calendar
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -23,7 +24,7 @@ data class CalendarEvent(
     val description: String,
     val color: Color,
     val date: Calendar,
-    val participants: List<String> = emptyList() // ← aggiunto
+    val participants: List<String> = emptyList()
 )
 
 
@@ -36,6 +37,7 @@ data class PositionedEvent(
 private val hourRange = 6..22
 private val hourHeight = 58.dp
 
+@SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
 fun EventList(
     events: List<CalendarEvent>,
