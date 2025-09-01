@@ -7,6 +7,7 @@ import com.example.myapplication.android.ui.core.api.dto.UserWithTimeParams2DTO
 import com.example.myapplication.android.ui.core.api.dto.UpdateUserWorkInfoDTO
 import com.example.myapplication.android.ui.core.api.service.ApiService
 import com.example.myapplication.android.ui.core.api.utils.ApiClient
+import com.example.myapplication.android.ui.core.mappers.ContractTypeMapper
 import com.example.myapplication.android.ui.state.CompanyEmployee
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -101,11 +102,12 @@ class EmployeeDetailViewModel(
     /** Salva con overtime decimale preciso (ARROTONDATO a 2 decimali) e poi ricarica */
     fun saveEmployeeDetails(updated: CompanyEmployee, overtimeHoursDecimal: Double) {
         val currentContractFromServer = _loadedDetails.value?.contractType
-        val contractApi = (updated.contractType?.name)
-            ?: currentContractFromServer
+        val contractApi = ContractTypeMapper.toApi(updated.contractType)      // ⬅️ usa mapper
+            ?: currentContractFromServer                                      // fallback a quello caricato
             ?: return run {
                 _uiState.value = _uiState.value.copy(errorMessage = "Tipo di contratto mancante")
             }
+
 
 
         val dto = UpdateUserWorkInfoDTO(

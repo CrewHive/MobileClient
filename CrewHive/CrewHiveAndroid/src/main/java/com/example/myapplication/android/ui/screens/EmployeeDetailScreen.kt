@@ -54,7 +54,18 @@ fun EmployeeDetailScreen(
     val rounded = RoundedCornerShape(14.dp)
 
     var showTypeDialog by remember { mutableStateOf(false) }
-    var contractUi by rememberSaveable(employee.userId) { mutableStateOf(employee.contractType.toUi()) }
+    // 1) inizializza senza “bloccarlo” al primo valore nullo
+    var contractUi by rememberSaveable(employee.userId) {
+        mutableStateOf<EmployeeContractType?>(null)
+    }
+
+// 2) appena arrivano i dettagli dell’API, se il locale è ancora vuoto lo popoli
+    LaunchedEffect(employee.userId, employee.contractType) {
+        if (contractUi == null) {
+            contractUi = employee.contractType.toUi()
+        }
+    }
+
 
     var weeklyHours by rememberSaveable(employee.userId) {
         mutableStateOf(employee.weeklyHours.coerceIn(0, 80))
@@ -70,16 +81,8 @@ fun EmployeeDetailScreen(
     var leaveAcc by rememberSaveable(employee.userId) { mutableStateOf(employee.leaveDaysAccumulated.coerceAtLeast(0f)) }
     var leaveUsed by rememberSaveable(employee.userId) { mutableStateOf(employee.leaveDaysUsed.coerceAtLeast(0f)) }
 
-    LaunchedEffect(
-        employee.userId,
-        employee.contractType,
-        employee.weeklyHours,
-        employee.vacationDaysAccumulated,
-        employee.vacationDaysUsed,
-        employee.leaveDaysAccumulated,
-        employee.leaveDaysUsed,
-        initialOvertimeMinutes
-    ) {
+    // 1) Re-init SOLO quando entri su un altro dipendente
+    LaunchedEffect(employee.userId) {
         contractUi = employee.contractType.toUi()
         weeklyHours = employee.weeklyHours.coerceIn(0, 80)
         overtimeMinutes = (initialOvertimeMinutes ?: (employee.overtimeHours.coerceAtLeast(0) * 60))
@@ -88,6 +91,27 @@ fun EmployeeDetailScreen(
         leaveAcc = employee.leaveDaysAccumulated.coerceAtLeast(0f)
         leaveUsed = employee.leaveDaysUsed.coerceAtLeast(0f)
     }
+
+// 2) Quando arrivano aggiornamenti dall’API, aggiorna solo i numerici (NON il contratto)
+    LaunchedEffect(
+        employee.contractType,
+        employee.weeklyHours,
+        employee.vacationDaysAccumulated,
+        employee.vacationDaysUsed,
+        employee.leaveDaysAccumulated,
+        employee.leaveDaysUsed,
+        initialOvertimeMinutes
+    ) {
+        weeklyHours = employee.weeklyHours.coerceIn(0, 80)
+        overtimeMinutes = (initialOvertimeMinutes ?: (employee.overtimeHours.coerceAtLeast(0) * 60))
+        vacAcc = employee.vacationDaysAccumulated.coerceAtLeast(0f)
+        vacUsed = employee.vacationDaysUsed.coerceAtLeast(0f)
+        leaveAcc = employee.leaveDaysAccumulated.coerceAtLeast(0f)
+        leaveUsed = employee.leaveDaysUsed.coerceAtLeast(0f)
+    }
+
+
+
 
     val isFullTime = contractUi?.name == "FULL_TIME"
     val maxWeekly = if (isFullTime) 40 else 39
