@@ -196,24 +196,26 @@ fun WeeklyEventGrid(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        if (showParticipants || pos.event.kind == CalendarItemKind.EVENT) {
+                                        // DOPO: mostra se il callback esiste (lascia la logica permessi al chiamante)
+                                        if (onDelete != null) {
                                             Button(
                                                 onClick = {
-                                                    onDelete?.invoke(pos.event)
+                                                    onDelete.invoke(pos.event)
                                                     showDialogState.value = false
                                                 },
                                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
                                             ) { Text("Elimina", color = Color.White) }
                                         }
-                                        if (showParticipants || pos.event.kind == CalendarItemKind.EVENT) {
+                                        if (onEdit != null) {
                                             Button(
                                                 onClick = {
-                                                    onEdit?.invoke(pos.event)
+                                                    onEdit.invoke(pos.event)
                                                     showDialogState.value = false
                                                 },
                                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C))
                                             ) { Text("Modifica", color = Color.White) }
                                         }
+
                                     }
                                 }
                             }

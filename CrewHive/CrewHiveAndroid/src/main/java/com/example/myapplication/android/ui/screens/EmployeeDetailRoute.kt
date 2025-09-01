@@ -24,64 +24,65 @@ fun EmployeeDetailRoute(
     showRemoveButton: Boolean = true,
     vm: EmployeeDetailViewModel = viewModel(factory = EmployeeDetailViewModel.provideFactory())
 ) {
-    val state  by vm.uiState.collectAsState()
-    val loaded by vm.loadedDetails.collectAsState()
-    val ctx = LocalContext.current
+        val state  by vm.uiState.collectAsState()
+        val loaded by vm.loadedDetails.collectAsState()
+        val ctx = LocalContext.current   // <-- AGGIUNGI QUESTO
 
-    // Ricava la companyId dal token e carica i dettagli del dipendente via nuova API
+
     val companyId = remember { JwtUtils.getCompanyId(TokenManager.jwtToken ?: "") }
-    LaunchedEffect(employee.userId, companyId) {
-        val uid = employee.userId.toLongOrNull()
-        if (companyId != null && uid != null) {
-            vm.loadEmployeeDetails(companyId, uid)   // usa GET /company/{companyId}/user/{targetId}/info
-        }
-    }
+        val targetUid = remember(employee.userId) { employee.userId.toLongOrNull() }
 
-    // Enrich dei dati UI con quelli restituiti dall’API (nome, contract type, ore/ferie/permessi…)
-    val enrichedEmployee = remember(employee, loaded) {
-        // Nome visualizzato: username -> base.name -> email -> User {id}
-        val displayName = when {
-            !loaded?.username.isNullOrBlank() -> loaded!!.username
-            employee.name.isNotBlank()        -> employee.name
-            !loaded?.email.isNullOrBlank()    -> loaded!!.email!!
-            else                              -> "User ${employee.userId}"
+
+        val safeLoaded = remember(loaded, targetUid) {
+            if (loaded != null && loaded!!.userId == targetUid) loaded else null
         }
 
-        // Contract type: string -> enum dominio (se valido), altrimenti lascia quello già presente
-        val domainContract = loaded?.contractType
-            ?.let { runCatching { CompanyEmployee.ContractType.valueOf(it) }.getOrNull() }
-            ?: employee.contractType
+        LaunchedEffect(employee.userId, companyId) {
+            val uid = employee.userId.toLongOrNull()
+            if (companyId != null && uid != null) {
+                vm.loadEmployeeDetails(companyId, uid)
+            }
+        }
 
-        employee.copy(
-            name = displayName,
-            contractType = domainContract,
-            weeklyHours = loaded?.workableHoursPerWeek ?: employee.weeklyHours,
-            // L’overtime lo gestiamo come minuti iniziali separati (vedi sotto); qui lasciamo l’int locale
-            vacationDaysAccumulated = (loaded?.vacationDaysAccumulated ?: employee.vacationDaysAccumulated.toDouble()).toFloat(),
-            vacationDaysUsed        = (loaded?.vacationDaysTaken       ?: employee.vacationDaysUsed.toDouble()).toFloat(),
-            leaveDaysAccumulated    = (loaded?.leaveDaysAccumulated    ?: employee.leaveDaysAccumulated.toDouble()).toFloat(),
-            leaveDaysUsed           = (loaded?.leaveDaysTaken          ?: employee.leaveDaysUsed.toDouble()).toFloat()
-        )
-    }
+    val detailsLoaded = safeLoaded != null
 
-    // Overtime minuti iniziali (UI step HH:MM) calcolati dal double dell’API
-    val initialOvertimeMinutes: Int? = remember(loaded) {
-        loaded?.overtimeHours?.let { (it * 60.0).roundToInt().coerceAtLeast(0) }
-    }
+    val domainContract = safeLoaded?.contractType
+        ?.let { runCatching { CompanyEmployee.ContractType.valueOf(it) }.getOrNull() }
+
+    val enrichedEmployee = employee.copy(
+        name = when {
+            !safeLoaded?.username.isNullOrBlank() -> safeLoaded!!.username
+            employee.name.isNotBlank()            -> employee.name
+            !safeLoaded?.email.isNullOrBlank()    -> safeLoaded!!.email!!
+            else                                  -> "User ${employee.userId}"
+        },
+        // ⬇️ SOLO dal server; finché non carica lascia null (mostrerai “Seleziona…”)
+        contractType = domainContract,
+        // ⬇️ SOLO dal server; finché non carica 0 (placeholder visivo)
+        weeklyHours = safeLoaded?.workableHoursPerWeek ?: 0,
+        vacationDaysAccumulated = (safeLoaded?.vacationDaysAccumulated ?: employee.vacationDaysAccumulated.toDouble()).toFloat(),
+        vacationDaysUsed        = (safeLoaded?.vacationDaysTaken       ?: employee.vacationDaysUsed.toDouble()).toFloat(),
+        leaveDaysAccumulated    = (safeLoaded?.leaveDaysAccumulated    ?: employee.leaveDaysAccumulated.toDouble()).toFloat(),
+        leaveDaysUsed           = (safeLoaded?.leaveDaysTaken          ?: employee.leaveDaysUsed.toDouble()).toFloat()
+    )
+
+
+    val initialOvertimeMinutes: Int? = remember(safeLoaded) {
+            safeLoaded?.overtimeHours?.let { (it * 60.0).roundToInt().coerceAtLeast(0) }
+        }
 
     EmployeeDetailScreen(
         employee = enrichedEmployee,
         initialOvertimeMinutes = initialOvertimeMinutes,
         onBack = onBack,
-        onSave = { updated, overtimeDecimal ->
-            vm.saveEmployeeDetails(updated, overtimeDecimal)
-        },
+        onSave = { updated, overtimeDecimal -> vm.saveEmployeeDetails(updated, overtimeDecimal) },
         onRemove = { emp ->
             val uid = emp.userId.toLongOrNull() ?: return@EmployeeDetailScreen
             val cid = companyId ?: return@EmployeeDetailScreen
             vm.removeEmployeeFromCompany(cid, uid)
         },
-        isLoading = state.isLoading,
+        // ⬇️ disabilita UI finché i dettagli non sono arrivati
+        isLoading = state.isLoading || !detailsLoaded,
         showRemoveButton = showRemoveButton
     )
 
@@ -94,6 +95,7 @@ fun EmployeeDetailRoute(
             buttonText = "OK"
         )
     }
+
 
     LaunchedEffect(state.removedSuccess) {
         if (state.removedSuccess) {

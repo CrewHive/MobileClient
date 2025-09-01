@@ -27,6 +27,16 @@ object TotalWeekHoursComponent {
             Text("Ore settimanali totali:", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = colors.shade950)
             Spacer(Modifier.height(25.dp))
             Box(contentAlignment = Alignment.Center) {
+                // Anello di sfondo (grigio chiaro)
+                CircularProgressIndicator(
+                    progress = 1f,
+                    strokeWidth = 20.dp,
+                    color = Color(0xFFE6E6E6), // grigio chiaro; puoi usare colors.shade200 se preferisci
+                    strokeCap = StrokeCap.Butt, // evita la "goccia" nel punto di chiusura
+                    modifier = Modifier.size(160.dp)
+                )
+
+                // Anello del progresso (sopra)
                 CircularProgressIndicator(
                     progress = progress,
                     strokeWidth = 20.dp,
@@ -34,10 +44,16 @@ object TotalWeekHoursComponent {
                     strokeCap = StrokeCap.Round,
                     modifier = Modifier.size(160.dp)
                 )
-                // sempre "lavorate/totali h" → quando max=0 diventa "0/0 h"
-                Text("${clamped}/${max.coerceAtLeast(0)} h",
-                    color = colors.shade950, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+
+                // Testo al centro
+                Text(
+                    "${clamped}/${max.coerceAtLeast(0)} h",
+                    color = colors.shade950,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
+
         }
     }
 }

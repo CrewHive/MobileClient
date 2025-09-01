@@ -428,8 +428,21 @@ fun CalendarScreen(
                             onEdit = { selectedEvent ->
                                 editingEvent = selectedEvent
                                 showEditDialog = true
+                            },
+                            onDelete = { event -> // ⬅️ NEW
+                                if (event.kind == CalendarItemKind.SHIFT) {
+                                    if (screenSource == NavigationSource.Drawer && vm.isManager) {
+                                        vm.deleteCompanyShift(event)
+                                    } else {
+                                        vm.deleteUserShift(event)
+                                    }
+                                } else {
+                                    vm.deleteEvent(event)
+                                }
+                                vm.refreshHomeToday()
                             }
                         )
+
                     }
                 }
             } else if (viewMode == "M") {
@@ -465,11 +478,10 @@ fun CalendarScreen(
                         DailyEventList(
                             events = userDayEvents,
                             showParticipants = screenSource == NavigationSource.Drawer,
-                            onEdit = { event ->
-                                editingEvent = event
-                                showEditDialog = true
-                            }
+                            onEdit = null,
+                            onDelete = null
                         )
+
                     }
                 }
             }

@@ -106,7 +106,11 @@ fun CalendarEventItem(
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(event.title, fontSize = 20.sp, color = colors.shade950)
                     Spacer(Modifier.height(8.dp))
-                    Text("Orario: ${event.startTime} – ${event.endTime}", fontSize = 14.sp, color = Color.DarkGray)
+                    Text(
+                        "Orario: ${event.startTime} – ${event.endTime}",
+                        fontSize = 14.sp,
+                        color = Color.DarkGray
+                    )
                     event.description?.takeIf { it.isNotBlank() }?.let {
                         Spacer(Modifier.height(4.dp))
                         Text("Descrizione: $it", fontSize = 14.sp, color = Color.DarkGray)
@@ -115,33 +119,47 @@ fun CalendarEventItem(
                     if (showParticipants && event.participants.isNotEmpty() && event.kind == CalendarItemKind.SHIFT) {
                         Spacer(Modifier.height(8.dp))
                         Text("Partecipanti:", fontSize = 14.sp)
-                        Text(event.participants.joinToString(", "), fontSize = 13.sp, color = colors.shade950)
+                        Text(
+                            event.participants.joinToString(", "),
+                            fontSize = 13.sp,
+                            color = colors.shade950
+                        )
                     }
 
                     Spacer(Modifier.height(12.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        // In lista “utente”: elimina/modifica per EVENT; in lista con partecipanti: anche per SHIFT
-                        if (showParticipants || (event.kind == CalendarItemKind.EVENT)) {
-                            Button(
-                                onClick = { onDelete?.invoke(); showDialog = false },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
-                            ) { Text("Elimina", color = Color.White) }
+
+                    // ⇩⇩ Nuovo: mostra i bottoni SOLO se la callback esiste
+                    val canDelete =
+                        onDelete != null && (showParticipants || event.kind == CalendarItemKind.EVENT)
+                    val canEdit =
+                        onEdit != null && (showParticipants || event.kind == CalendarItemKind.EVENT)
+
+                    if (canDelete || canEdit) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            if (canDelete) {
+                                Button(
+                                    onClick = { onDelete?.invoke(); showDialog = false },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(
+                                            0xFFD32F2F
+                                        )
+                                    )
+                                ) { Text("Elimina", color = Color.White) }
+                            }
+                            if (canEdit) {
+                                Button(
+                                    onClick = { onEdit?.invoke(event); showDialog = false },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = Color(
+                                            0xFF388E3C
+                                        )
+                                    )
+                                ) { Text("Modifica", color = Color.White) }
+                            }
                         }
-                        if (showParticipants || (event.kind == CalendarItemKind.EVENT)) {
-                            Button(
-                                onClick = { onEdit?.invoke(event); showDialog = false },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C))
-                            ) { Text("Modifica", color = Color.White) }
-                        }
-//                        if (!showParticipants && event.kind == CalendarItemKind.SHIFT) {
-//                            Button(
-//                                onClick = { onReport?.invoke(); showDialog = false },
-//                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
-//                            ) { Text("Report", color = Color.White) }
-//                        }
                     }
                 }
             }

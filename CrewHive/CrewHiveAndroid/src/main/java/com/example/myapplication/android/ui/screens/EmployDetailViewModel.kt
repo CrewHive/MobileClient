@@ -55,13 +55,20 @@ class EmployeeDetailViewModel(
     private fun round2NonNeg(x: Double): Double =
         BigDecimal.valueOf(x.coerceAtLeast(0.0)).setScale(2, RoundingMode.HALF_UP).toDouble()
 
-    /** Carica i dettagli via nuova API universale */
+    fun clearLoadedDetails() {
+        _loadedDetails.value = null
+    }
+
     fun loadEmployeeDetails(companyId: Long, userId: Long) {
         if (companyId <= 0L || userId <= 0L) return
         viewModelScope.launch {
+            // ⬇️ svuoto i vecchi dettagli se sto cambiando utente
+            if (_loadedDetails.value?.userId != userId) {
+                _loadedDetails.value = null
+            }
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
-                lastCompanyId = companyId                    // ⬅️ memorizza per i reload post-salvataggio
+                lastCompanyId = companyId
                 val resp = api.getUserInformation(companyId, userId)
                 if (resp.isSuccessful) {
                     val body = resp.body()
@@ -93,7 +100,13 @@ class EmployeeDetailViewModel(
 
     /** Salva con overtime decimale preciso (ARROTONDATO a 2 decimali) e poi ricarica */
     fun saveEmployeeDetails(updated: CompanyEmployee, overtimeHoursDecimal: Double) {
-        val contractApi = updated.contractType?.name ?: "FULL_TIME"
+        val currentContractFromServer = _loadedDetails.value?.contractType
+        val contractApi = (updated.contractType?.name)
+            ?: currentContractFromServer
+            ?: return run {
+                _uiState.value = _uiState.value.copy(errorMessage = "Tipo di contratto mancante")
+            }
+
 
         val dto = UpdateUserWorkInfoDTO(
             targetUserId = updated.userId.toLongOrNull() ?: -1L,
