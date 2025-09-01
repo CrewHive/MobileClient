@@ -21,8 +21,9 @@ class EmployeeDetailViewModel(
     data class UiState(
         val isLoading: Boolean = false,
         val errorMessage: String? = null,
-        val successEvent: Boolean = false,
-        val savedEmployee: CompanyEmployee? = null
+        val successEvent: Boolean = false,            // successo salvataggio
+        val savedEmployee: CompanyEmployee? = null,
+        val removedSuccess: Boolean = false           // successo rimozione
     )
 
     private val _uiState = MutableStateFlow(UiState())
@@ -40,7 +41,11 @@ class EmployeeDetailViewModel(
     }
 
     fun consumeSuccess() {
-        _uiState.value = _uiState.value.copy(successEvent = false, savedEmployee = null)
+        _uiState.value = _uiState.value.copy(
+            successEvent = false,
+            savedEmployee = null,
+            removedSuccess = false                 // ⬅️ reset anche la rimozione
+        )
     }
 
     /** ---------- Helpers numerici ---------- */
@@ -56,6 +61,7 @@ class EmployeeDetailViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             try {
+                lastCompanyId = companyId                    // ⬅️ memorizza per i reload post-salvataggio
                 val resp = api.getUserInformation(companyId, userId)
                 if (resp.isSuccessful) {
                     val body = resp.body()
@@ -118,6 +124,30 @@ class EmployeeDetailViewModel(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         errorMessage = "Aggiornamento non riuscito (${resp.code()})."
+                    )
+                }
+            } catch (t: Throwable) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    errorMessage = t.message ?: "Errore di rete."
+                )
+            }
+        }
+    }
+
+    /** ⬇️ NUOVO: rimuove l'utente dall'azienda */
+    fun removeEmployeeFromCompany(companyId: Long, userId: Long) {
+        if (companyId <= 0L || userId <= 0L) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null, removedSuccess = false)
+            try {
+                val resp = api.removeUserFromCompany(companyId, userId)
+                if (resp.isSuccessful) {
+                    _uiState.value = _uiState.value.copy(isLoading = false, removedSuccess = true)
+                } else {
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Rimozione non riuscita (${resp.code()})."
                     )
                 }
             } catch (t: Throwable) {

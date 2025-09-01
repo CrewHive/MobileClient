@@ -38,7 +38,7 @@ data class PositionedEvent(
     val totalColumns: Int
 )
 
-private val hourRange = 1..24
+private val hourRange = 0..24
 private val hourHeight = 58.dp
 
 

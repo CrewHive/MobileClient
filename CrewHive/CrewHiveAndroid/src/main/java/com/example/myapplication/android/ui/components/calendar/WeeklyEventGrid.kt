@@ -54,7 +54,7 @@ fun WeeklyEventGrid(
     onDelete: ((CalendarEvent) -> Unit)? = null,
     onReport: ((CalendarEvent) -> Unit)? = null,
     onEdit: ((CalendarEvent) -> Unit)? = null,
-    hourRange: IntRange = 1..24,
+    hourRange: IntRange = 0..24,
     hourHeight: Dp = 40.dp,
     timeColumnWidth: Dp = 30.dp,
     modifier: Modifier = Modifier

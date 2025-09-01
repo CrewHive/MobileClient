@@ -99,7 +99,7 @@ fun CompanyOnboardingScreen(
                 )
 
                 Text(
-                    text = "Create your first Hive!",
+                    text = "Crea il tuo primo Hive!",
                     style = MaterialTheme.typography.headlineSmall.copy(
                         fontWeight = FontWeight.SemiBold
                     ),
@@ -109,14 +109,14 @@ fun CompanyOnboardingScreen(
                 )
 
                 PrimaryWideButton(
-                    label = "Create a company",
+                    label = "Crea un'azienda",
                     onClick = onCreateCompany
                 )
 
                 Spacer(Modifier.height(12.dp))  // spazio tra i due pulsanti
 
                 PrimaryWideButton(
-                    label = "Join a company",
+                    label = "Entra in un'azienda",
                     onClick = onJoinCompany
                 )
             }

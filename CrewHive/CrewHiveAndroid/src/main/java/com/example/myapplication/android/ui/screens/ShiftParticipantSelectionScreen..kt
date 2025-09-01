@@ -2,10 +2,8 @@
 package com.example.myapplication.android.ui.screens
 
 import CustomDatePickerDialog
-import android.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -20,7 +18,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.android.state.GlobalParticipants
 import com.example.myapplication.android.ui.components.blocks.ParticipantRow
 import com.example.myapplication.android.ui.components.calendar.CalendarEvent
 import com.example.myapplication.android.ui.components.calendar.CalendarItemKind
@@ -29,7 +26,6 @@ import com.example.myapplication.android.ui.components.search.EmployeeSearchBar
 import com.example.myapplication.android.ui.state.CompanyEmployee
 import com.example.myapplication.android.ui.state.getStartOfWeek
 import com.example.myapplication.android.ui.theme.CustomTheme
-
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,33 +34,39 @@ fun ShiftParticipantSelectionScreen(
     selectedDate: Calendar,
     onDateChange: (Calendar) -> Unit,
     shiftTemplate: ShiftTemplate,
-    allEmployees: List<CompanyEmployee>,            // lista reale
+    allEmployees: List<CompanyEmployee>,            // lista reale (può essere vuota)
     onBack: () -> Unit,
     onConfirm: (CalendarEvent, List<Long>) -> Unit, // ritorna anche gli ID
     events: List<CalendarEvent>,
-    initialSelectedUserIds: List<Long> = emptyList() // ⬅️ NUOVO (opzionale)
+    initialSelectedUserIds: List<Long> = emptyList()
 ) {
     val colors = CustomTheme.colors
+
+    // ----- SANITIZZAZIONE INPUT -----
+    val hhmm = remember { Regex("""^\d{1,2}:\d{2}$""") }
+    val safeTitle = remember(shiftTemplate.title) { shiftTemplate.title.ifBlank { "Turno" } }
+    val safeStart = remember(shiftTemplate.startTime) { if (hhmm.matches(shiftTemplate.startTime)) shiftTemplate.startTime else "00:00" }
+    val safeEnd   = remember(shiftTemplate.endTime)   { if (hhmm.matches(shiftTemplate.endTime))   shiftTemplate.endTime   else "00:01" }
+    val safeColor = shiftTemplate.color
 
     val sdf = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
     var showDatePicker by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
 
-    // ⬇️ Stato selezione basato su ID reali, inizializzato dagli ID passati
     val selectedUserIds = remember(initialSelectedUserIds) {
         mutableStateListOf<Long>().apply { addAll(initialSelectedUserIds) }
     }
 
     val selectedWeekStart = remember(selectedDate.timeInMillis) { getStartOfWeek(selectedDate) }
 
-    val currentPreviewEvent = remember(shiftTemplate, selectedDate) {
+    val currentPreviewEvent = remember(safeTitle, safeStart, safeEnd, selectedDate, safeColor) {
         mutableStateOf(
             CalendarEvent(
-                title = shiftTemplate.title,
-                startTime = shiftTemplate.startTime,
-                endTime = shiftTemplate.endTime,
+                title = safeTitle,
+                startTime = safeStart,
+                endTime = safeEnd,
                 description = "Preview",
-                color = shiftTemplate.color,
+                color = safeColor,
                 date = selectedDate,
                 participants = emptyList(),
                 id = -System.currentTimeMillis(),
@@ -77,10 +79,15 @@ fun ShiftParticipantSelectionScreen(
         CustomDatePickerDialog(
             onDismiss = { showDatePicker = false },
             onDateSelected = {
-                val (d, m, y) = it.split("/").map(String::toInt)
-                val cal = Calendar.getInstance().apply { set(y, m - 1, d) }
-                onDateChange(cal)
-                currentPreviewEvent.value = currentPreviewEvent.value.copy(date = cal)
+                val parts = it.split("/")
+                if (parts.size == 3) {
+                    runCatching {
+                        Calendar.getInstance().apply { set(parts[2].toInt(), parts[1].toInt() - 1, parts[0].toInt()) }
+                    }.onSuccess { cal ->
+                        onDateChange(cal)
+                        currentPreviewEvent.value = currentPreviewEvent.value.copy(date = cal)
+                    }
+                }
                 showDatePicker = false
             }
         )
@@ -90,9 +97,7 @@ fun ShiftParticipantSelectionScreen(
         // Top bar
         Spacer(Modifier.height(16.dp))
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             IconButton(onClick = onBack) {
@@ -100,12 +105,12 @@ fun ShiftParticipantSelectionScreen(
             }
             IconButton(onClick = {
                 val newEvent = CalendarEvent(
-                    title = shiftTemplate.title,
-                    startTime = shiftTemplate.startTime,
-                    endTime = shiftTemplate.endTime,
+                    title = safeTitle,
+                    startTime = safeStart,
+                    endTime = safeEnd,
                     description = shiftTemplate.description,
-                    color = shiftTemplate.color,
-                    date = selectedDate,
+                    color = safeColor,
+                    date = currentPreviewEvent.value.date,
                     participants = emptyList(),
                     id = -System.currentTimeMillis(),
                     kind = CalendarItemKind.SHIFT
@@ -118,30 +123,28 @@ fun ShiftParticipantSelectionScreen(
 
         // Header
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 16.dp, start = 10.dp, end = 10.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 16.dp, start = 10.dp, end = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Spacer(Modifier.width(10.dp))
-            Box(Modifier.size(50.dp).background(shiftTemplate.color, shape = CircleShape))
+            Box(Modifier.size(50.dp).background(safeColor, shape = CircleShape))
             Spacer(Modifier.width(10.dp))
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Spacer(Modifier.width(8.dp))
-                    Text(shiftTemplate.title, color = colors.shade950, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Text(safeTitle, color = colors.shade950, fontSize = 28.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.height(4.dp))
                 Row {
                     Text(
-                        sdf.format(selectedDate.time),
+                        sdf.format(currentPreviewEvent.value.date.time),
                         color = colors.shade950.copy(alpha = 0.7f),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "${shiftTemplate.startTime} - ${shiftTemplate.endTime}",
+                        "$safeStart - $safeEnd",
                         color = colors.shade950.copy(alpha = 0.7f),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
@@ -161,7 +164,7 @@ fun ShiftParticipantSelectionScreen(
         // Search
         EmployeeSearchBar(searchText = searchQuery, onSearchChange = { searchQuery = it })
 
-        // Lista dipendenti REALI (filtrati)
+        // Lista dipendenti filtrati (se la lista è vuota, la LazyColumn sarà vuota senza crash)
         val filtered = remember(searchQuery, allEmployees) {
             allEmployees.filter { it.name.contains(searchQuery, ignoreCase = true) }
         }
@@ -175,11 +178,8 @@ fun ShiftParticipantSelectionScreen(
                 val uid = emp.userId.toLongOrNull()
                 val name = emp.name
 
-                // Eventi della settimana mostrati per nome (UI attuale usa i nomi nei participants)
                 val userEvents = events.filter {
-                    it.participants.contains(name) &&
-                            !it.date.before(selectedWeekStart) &&
-                            !it.date.after(weekEnd)
+                    it.participants.contains(name) && !it.date.before(selectedWeekStart) && !it.date.after(weekEnd)
                 }
 
                 val isSel = uid != null && selectedUserIds.contains(uid)
@@ -190,7 +190,7 @@ fun ShiftParticipantSelectionScreen(
                     weeklyHours = emp.weeklyHours,
                     userEvents = userEvents,
                     miniCalendarWeekStart = selectedWeekStart,
-                    selectedDate = selectedDate,
+                    selectedDate = currentPreviewEvent.value.date,
                     isSelected = isSel,
                     onClick = {
                         uid?.let {
@@ -203,5 +203,3 @@ fun ShiftParticipantSelectionScreen(
         }
     }
 }
-
-

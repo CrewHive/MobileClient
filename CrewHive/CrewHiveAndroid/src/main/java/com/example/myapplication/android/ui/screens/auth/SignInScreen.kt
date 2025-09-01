@@ -198,7 +198,7 @@ fun SignInScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Footer: Registrati
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -209,17 +209,22 @@ fun SignInScreen(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Non hai un account?",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
-                    )
-                    Text(
-                        text = "Registrati",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
-                        color = colors.shade600,
-                        modifier = Modifier.clickable(enabled = !isLoading) { onNavigateToSignUp() }
-                    )
+                    Column(modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Non hai un account?",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
+                        )
+                        Text(
+                            text = "Registrati",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                            color = colors.shade600,
+                            modifier = Modifier.clickable(enabled = !isLoading) { onNavigateToSignUp() }
+                        )
+                    }
                 }
             }
         }

@@ -74,10 +74,13 @@ fun EmployeeDetailRoute(
         initialOvertimeMinutes = initialOvertimeMinutes,
         onBack = onBack,
         onSave = { updated, overtimeDecimal ->
-            // Salva anche con gli straordinari decimali
             vm.saveEmployeeDetails(updated, overtimeDecimal)
         },
-        onRemove = onRemove,
+        onRemove = { emp ->
+            val uid = emp.userId.toLongOrNull() ?: return@EmployeeDetailScreen
+            val cid = companyId ?: return@EmployeeDetailScreen
+            vm.removeEmployeeFromCompany(cid, uid)
+        },
         isLoading = state.isLoading,
         showRemoveButton = showRemoveButton
     )
@@ -90,6 +93,16 @@ fun EmployeeDetailRoute(
             onDismiss = vm::clearError,
             buttonText = "OK"
         )
+    }
+
+    LaunchedEffect(state.removedSuccess) {
+        if (state.removedSuccess) {
+            android.widget.Toast
+                .makeText(ctx, "Dipendente rimosso dall'azienda", android.widget.Toast.LENGTH_SHORT)
+                .show()
+            vm.consumeSuccess()
+            onRemove(enrichedEmployee) // qui fai solo navigazione (es. currentScreen = "Employees")
+        }
     }
 
     // Success -> toast + callback + back

@@ -48,7 +48,7 @@ fun JoinCompanyCodeScreen(
     Surface(modifier = modifier.fillMaxSize(), color = Color.White) {
         SwipeRefresh(state = swipeState, onRefresh = onRefresh) {
             Box(Modifier.fillMaxSize()) {
-                // sfondo full-screen
+                // sfondo a schermo intero
                 Image(
                     painter = painterResource(backgroundRes),
                     contentDescription = null,
@@ -56,7 +56,7 @@ fun JoinCompanyCodeScreen(
                     contentScale = ContentScale.Crop
                 )
 
-                // back button
+                // pulsante "indietro"
                 FilledTonalIconButton(
                     onClick = onBack,
                     modifier = Modifier
@@ -70,10 +70,10 @@ fun JoinCompanyCodeScreen(
                         contentColor = colors.shade600
                     )
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
                 }
 
-                // contenuto scrollabile centrato
+                // contenuto scrollabile e centrato
                 BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxSize()
@@ -89,7 +89,7 @@ fun JoinCompanyCodeScreen(
                         verticalArrangement = Arrangement.Center
                     ) {
                         Text(
-                            text = "Join your Hive",
+                            text = "Unisciti alla tua Hive",
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = colors.shade900
@@ -98,7 +98,7 @@ fun JoinCompanyCodeScreen(
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            text = "Give this code to your manager to be added to the company.",
+                            text = "Fornisci questo codice al tuo responsabile per essere aggiunto all’azienda.",
                             style = MaterialTheme.typography.bodyMedium.copy(color = colors.shade700),
                             textAlign = TextAlign.Center
                         )
@@ -107,13 +107,13 @@ fun JoinCompanyCodeScreen(
 
                         CodeCard(
                             userId = userId,
-                            onCopy = { /* handled in child */ },
+                            onCopy = { /* gestito nel child */ },
                         )
 
                         Spacer(Modifier.height(16.dp))
 
                         Text(
-                            text = "Tip: if you’ve already been added, pull to refresh this screen.",
+                            text = "Suggerimento: se sei già stato aggiunto, trascina verso il basso per aggiornare questa schermata.",
                             style = MaterialTheme.typography.bodySmall.copy(color = colors.shade600),
                             textAlign = TextAlign.Center,
                             modifier = Modifier.padding(horizontal = 8.dp)
@@ -146,10 +146,10 @@ private fun CodeCard(
                 .padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
             Text(
-                text = "Your code",
+                text = "Il tuo codice",
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF5D4037) // marrone usato in Home
+                    color = Color(0xFF5D4037) // marrone usato nella Home
                 )
             )
             Spacer(Modifier.height(10.dp))
@@ -186,18 +186,18 @@ private fun CodeCard(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Send,
-                        contentDescription = "Copy",
+                        contentDescription = "Copia",
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text("Copy")
+                    Text("Copia")
                 }
             }
 
             if (copied) {
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Copied!",
+                    text = "Copiato!",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = colors.shade600,
                         fontWeight = FontWeight.SemiBold

@@ -43,7 +43,7 @@ fun EditablePopupDialog(
     onUpdateEvent: (CalendarEvent, List<Long>?) -> Unit,
     allEmployees: List<CompanyEmployee> = emptyList(),
     canEditParticipants: Boolean = false,
-    allEvents: List<CalendarEvent> = emptyList() // per la preview del mini-calendario nel selettore
+    allEvents: List<CalendarEvent> = emptyList()
 ) {
     val isShift = eventToEdit.kind == CalendarItemKind.SHIFT
 
@@ -55,8 +55,7 @@ fun EditablePopupDialog(
     var descrizione by remember { mutableStateOf(eventToEdit.description ?: "") }
     var selectedColor by remember { mutableStateOf(eventToEdit.color) }
 
-    // Pre-selezione partecipanti: se i "participants" sono numerici → sono userId,
-    // altrimenti mappiamo i nomi sugli ID reali
+    // Partecipanti preselezionati (ID se presenti, altrimenti match per nome)
     val preSelectedIds = remember {
         val parts = eventToEdit.participants
         val numeric = parts.mapNotNull { it.toLongOrNull() }
@@ -80,27 +79,33 @@ fun EditablePopupDialog(
     val brownText = Color(0xFF5D4037)
     val beige = Color(0xFFFFF8E1)
     val dateFmt = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+    val hhmm = remember { Regex("""^\d{1,2}:\d{2}$""") }
 
     val timeError by remember(oraInizio, oraFine) {
         derivedStateOf {
-            try {
+            runCatching {
                 val (h1, m1) = oraInizio.split(":").map { it.toInt() }
                 val (h2, m2) = oraFine.split(":").map { it.toInt() }
                 val s = h1 * 60 + m1
                 val e = h2 * 60 + m2
                 e <= s
-            } catch (_: Exception) { false }
+            }.getOrElse { true } // se parsing fallisce, consideriamo errore
         }
     }
+
+    // Requisiti per poter aprire il selettore partecipanti
+    val canOpenParticipants = isShift &&
+            canEditParticipants &&
+            titolo.isNotBlank() &&
+            hhmm.matches(oraInizio) &&
+            hhmm.matches(oraFine) &&
+            !timeError
 
     // ---------- COLOR PICKER ----------
     if (showColorDialog) {
         AdvancedColorPickerDialog(
             onDismiss = { showColorDialog = false },
-            onColorSelected = {
-                selectedColor = it
-                showColorDialog = false
-            }
+            onColorSelected = { selectedColor = it; showColorDialog = false }
         )
     }
 
@@ -109,15 +114,13 @@ fun EditablePopupDialog(
         CustomDatePickerDialog(
             onDismiss = { showCustomDatePicker = false },
             onDateSelected = { ddmmyyyy ->
+                val p = ddmmyyyy.split("/")
                 runCatching {
-                    val p = ddmmyyyy.split("/")
                     Calendar.getInstance().apply {
                         set(p[2].toInt(), p[1].toInt() - 1, p[0].toInt(), 0, 0, 0)
                         set(Calendar.MILLISECOND, 0)
                     }
-                }.onSuccess {
-                    selectedPickerDate = it
-                }
+                }.onSuccess { selectedPickerDate = it }
                 showCustomDatePicker = false
             }
         )
@@ -140,27 +143,16 @@ fun EditablePopupDialog(
         Surface(
             shape = RoundedCornerShape(16.dp),
             color = Color.White,
-            modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.85f)
+            modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.85f)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) { Text("Chiudi", color = brown) }
                 }
 
-                Text(
-                    if (isShift) "Modifica turno" else "Modifica evento",
-                    fontSize = 20.sp,
-                    color = brownText,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Text(if (isShift) "Modifica turno" else "Modifica evento", fontSize = 20.sp, color = brownText, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(16.dp))
 
-                // Titolo
                 OutlinedTextField(
                     value = titolo,
                     onValueChange = { titolo = it },
@@ -168,19 +160,15 @@ fun EditablePopupDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = brownText,
-                        unfocusedTextColor = brownText,
-                        focusedBorderColor = brown,
-                        unfocusedBorderColor = brown,
-                        focusedLabelColor = brown,
-                        unfocusedLabelColor = brown.copy(alpha = 0.7f),
+                        focusedTextColor = brownText, unfocusedTextColor = brownText,
+                        focusedBorderColor = brown, unfocusedBorderColor = brown,
+                        focusedLabelColor = brown, unfocusedLabelColor = brown.copy(alpha = 0.7f),
                         cursorColor = brown
                     )
                 )
 
                 Spacer(Modifier.height(8.dp))
 
-                // Data
                 Button(
                     onClick = { showCustomDatePicker = true },
                     border = BorderStroke(2.dp, brown),
@@ -189,21 +177,16 @@ fun EditablePopupDialog(
 
                 Spacer(Modifier.height(8.dp))
 
-                // Orari
                 Row(Modifier.fillMaxWidth()) {
                     Button(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 4.dp),
+                        modifier = Modifier.weight(1f).padding(end = 4.dp),
                         onClick = { showCustomTimePickerStart = true },
                         border = BorderStroke(2.dp, brown),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
                     ) { Text(oraInizio.ifBlank { "Ora inizio" }, color = brown) }
 
                     Button(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(start = 4.dp),
+                        modifier = Modifier.weight(1f).padding(start = 4.dp),
                         onClick = { showCustomTimePickerEnd = true },
                         border = BorderStroke(2.dp, brown),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
@@ -212,54 +195,39 @@ fun EditablePopupDialog(
 
                 if (timeError) {
                     Spacer(Modifier.height(4.dp))
-                    Text(
-                        "⚠ L'orario di fine deve essere successivo a quello di inizio",
-                        color = Color.Red,
-                        fontSize = 12.sp,
-                        textAlign = TextAlign.Center
-                    )
+                    Text("⚠ L'orario di fine deve essere successivo a quello di inizio e nel formato HH:mm", color = Color.Red, fontSize = 12.sp, textAlign = TextAlign.Center)
                 }
 
                 Spacer(Modifier.height(8.dp))
 
-                // Descrizione
                 OutlinedTextField(
                     value = descrizione,
                     onValueChange = { descrizione = it },
                     label = { Text("Descrizione") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = brownText,
-                        unfocusedTextColor = brownText,
-                        focusedBorderColor = brown,
-                        unfocusedBorderColor = brown,
-                        focusedLabelColor = brown,
-                        unfocusedLabelColor = brown.copy(alpha = 0.7f),
+                        focusedTextColor = brownText, unfocusedTextColor = brownText,
+                        focusedBorderColor = brown, unfocusedBorderColor = brown,
+                        focusedLabelColor = brown, unfocusedLabelColor = brown.copy(alpha = 0.7f),
                         cursorColor = brown
                     )
                 )
 
-                // Partecipanti (solo per TURNI e se permesso)
+                // ----- PARTECIPANTI -----
                 if (isShift && canEditParticipants) {
                     Spacer(Modifier.height(12.dp))
                     Text("Partecipanti", color = brownText, fontWeight = FontWeight.Medium)
 
-                    val chosenNames by remember(allEmployees) {
+                    val chosenNames by remember(allEmployees, selectedEmployeeIds) {
                         derivedStateOf {
-                            val ids = selectedEmployeeIds.toList() // <- lettura che invalida quando cambia
-                            allEmployees
-                                .filter { it.userId.toLongOrNull() in ids }
-                                .map { it.name }
+                            val ids = selectedEmployeeIds.toList()
+                            allEmployees.filter { it.userId.toLongOrNull() in ids }.map { it.name }
                         }
                     }
 
-
                     Spacer(Modifier.height(6.dp))
 
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         FlowRow(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
@@ -267,13 +235,8 @@ fun EditablePopupDialog(
                         ) {
                             chosenNames.forEach { name ->
                                 AssistChip(
-                                    onClick = {},
-                                    enabled = false,
-                                    label = { Text(name) },
-                                    colors = AssistChipDefaults.assistChipColors(
-                                        disabledContainerColor = beige,
-                                        disabledLabelColor = brownText
-                                    )
+                                    onClick = {}, enabled = false, label = { Text(name) },
+                                    colors = AssistChipDefaults.assistChipColors(disabledContainerColor = beige, disabledLabelColor = brownText)
                                 )
                             }
                         }
@@ -281,11 +244,15 @@ fun EditablePopupDialog(
                         Spacer(Modifier.height(8.dp))
 
                         OutlinedButton(
-                            onClick = { showParticipantPicker = true },
+                            onClick = { if (canOpenParticipants) showParticipantPicker = true },
+                            enabled = canOpenParticipants,                                // ← BLOCCO QUI
                             border = BorderStroke(1.dp, brown),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = brown)
-                        ) {
-                            Text(if (chosenNames.isEmpty()) "Inserisci partecipanti" else "Modifica partecipanti")
+                        ) { Text(if (chosenNames.isEmpty()) "Inserisci partecipanti" else "Modifica partecipanti") }
+
+                        if (!canOpenParticipants) {
+                            Spacer(Modifier.height(4.dp))
+                            Text("Compila titolo e orari validi (HH:mm) prima di scegliere i partecipanti.", color = Color.Red, fontSize = 12.sp)
                         }
                     }
                 }
@@ -294,41 +261,22 @@ fun EditablePopupDialog(
 
                 // Colore
                 Text("Colore", color = brownText, fontWeight = FontWeight.Medium)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    val colorOptions = listOf(
-                        Color(0xFF81C784), Color(0xFF64B5F6), Color(0xFFFFB74D),
-                        Color(0xFFBA68C8), Color(0xFFE57373)
-                    )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    val colorOptions = listOf(Color(0xFF81C784), Color(0xFF64B5F6), Color(0xFFFFB74D), Color(0xFFBA68C8), Color(0xFFE57373))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         colorOptions.forEach { c ->
                             val isSel = selectedColor == c
                             Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(c)
-                                    .border(
-                                        width = if (isSel) 3.dp else 1.dp,
-                                        color = if (isSel) Color.Black else Color.Gray,
-                                        shape = CircleShape
-                                    )
+                                modifier = Modifier.size(36.dp).clip(CircleShape).background(c)
+                                    .border(width = if (isSel) 3.dp else 1.dp, color = if (isSel) Color.Black else Color.Gray, shape = CircleShape)
                                     .clickable { selectedColor = c }
                             )
                         }
                         Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(Color.LightGray)
-                                .border(1.dp, Color.Gray, CircleShape)
-                                .clickable { showColorDialog = true },
+                            modifier = Modifier.size(36.dp).clip(CircleShape).background(Color.LightGray)
+                                .border(1.dp, Color.Gray, CircleShape).clickable { showColorDialog = true },
                             contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Default.Edit, contentDescription = "Colore personalizzato", tint = Color.DarkGray)
-                        }
+                        ) { Icon(Icons.Default.Edit, contentDescription = "Colore personalizzato", tint = Color.DarkGray) }
                     }
                 }
 
@@ -338,7 +286,6 @@ fun EditablePopupDialog(
                 Button(
                     onClick = {
                         if (timeError || titolo.isBlank() || oraInizio.isBlank() || oraFine.isBlank()) return@Button
-
                         val updatedEvent = eventToEdit.copy(
                             title = titolo,
                             startTime = oraInizio,
@@ -347,16 +294,10 @@ fun EditablePopupDialog(
                             color = selectedColor,
                             date = (selectedPickerDate.clone() as Calendar),
                             participants = if (isShift) {
-                                // in UI mostriamo i nomi corrispondenti agli ID
-                                allEmployees
-                                    .filter { it.userId.toLongOrNull() in selectedEmployeeIds }
-                                    .map { it.name }
+                                allEmployees.filter { it.userId.toLongOrNull() in selectedEmployeeIds }.map { it.name }
                             } else eventToEdit.participants
                         )
-
-                        val idsOrNull: List<Long>? =
-                            if (isShift && canEditParticipants) selectedEmployeeIds.toList() else null
-
+                        val idsOrNull: List<Long>? = if (isShift && canEditParticipants) selectedEmployeeIds.toList() else null
                         onUpdateEvent(updatedEvent, idsOrNull)
                     },
                     modifier = Modifier.align(Alignment.End),
@@ -366,13 +307,16 @@ fun EditablePopupDialog(
         }
     }
 
-    // ---------- FULLSCREEN: selezione partecipanti (riuso della tua schermata) ----------
+    // ---------- FULLSCREEN: selezione partecipanti ----------
     if (showParticipantPicker && isShift && canEditParticipants) {
-        val shiftTemplate = remember(titolo, oraInizio, oraFine, selectedColor, descrizione) {
+        // Sicurezza extra: template con fallback
+        val safeTemplate = remember(titolo, oraInizio, oraFine, selectedColor, descrizione) {
+            val s = if (hhmm.matches(oraInizio)) oraInizio else "00:00"
+            val e = if (hhmm.matches(oraFine))   oraFine   else "00:01"
             ShiftTemplate(
                 title = titolo.ifBlank { "Turno" },
-                startTime = oraInizio,
-                endTime = oraFine,
+                startTime = s,
+                endTime = e,
                 description = descrizione,
                 color = selectedColor
             )
@@ -380,14 +324,13 @@ fun EditablePopupDialog(
 
         androidx.compose.ui.window.Dialog(
             onDismissRequest = { showParticipantPicker = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false) // full-screen
+            properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
             Surface(color = Color.White, modifier = Modifier.fillMaxSize()) {
-                // IMPORTANTE: la tua ShiftParticipantSelectionScreen deve accettare initialSelectedUserIds
                 com.example.myapplication.android.ui.screens.ShiftParticipantSelectionScreen(
                     selectedDate = selectedPickerDate,
                     onDateChange = { selectedPickerDate = it },
-                    shiftTemplate = shiftTemplate,
+                    shiftTemplate = safeTemplate,
                     allEmployees = allEmployees,
                     onBack = { showParticipantPicker = false },
                     onConfirm = { _, ids ->

@@ -19,19 +19,21 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.example.myapplication.android.R
 import com.example.myapplication.android.ui.components.pickers.CompanyTypePickerDialog
 import com.example.myapplication.android.ui.core.api.dto.AddressDTO
-import com.example.myapplication.android.ui.core.api.dto.singleLine
 import com.example.myapplication.android.ui.theme.CustomTheme
+import androidx.compose.foundation.text.KeyboardOptions
 
 enum class CompanyType(val displayName: String) {
-    HOSPITAL("Hospital"),
-    RESTAURANT("Restaurant"),
+    HOSPITAL("Ospedale"),
+    RESTAURANT("Ristorante"),
     BAR("Bar"),
-    OTHER("Other");
+    OTHER("Altro");
 }
 
 @Composable
@@ -55,20 +57,23 @@ fun CreateCompanyScreen(
     var province by rememberSaveable { mutableStateOf("") }
     var country by rememberSaveable { mutableStateOf("") }
 
-    // controlli minimi
+    // VALIDAZIONI BASE
     val nameError = name.isBlank()
     val typeError = selectedType == null
 
-    // logica indirizzo: o tutti vuoti, o tutti pieni
     val anyAddress = listOf(street, zipCode, city, province, country).any { it.isNotBlank() }
     val allAddressFilled = listOf(street, zipCode, city, province, country).all { it.isNotBlank() }
-    val addressError = anyAddress && !allAddressFilled
 
-    val formValid = !(nameError || typeError || addressError)
+    val provinceValid = province.length == 2 && province.all { it.isLetter() }
+    val zipValid = zipCode.length >= 5 && zipCode.all { it.isDigit() }
+
+    val addressValid = !anyAddress || (allAddressFilled && provinceValid && zipValid)
+    val addressError = !addressValid
+
+    val formValid = !nameError && !typeError && addressValid
 
     Surface(modifier = modifier.fillMaxSize(), color = Color.White) {
         Box(Modifier.fillMaxSize()) {
-            // background immagine
             Image(
                 painter = painterResource(backgroundRes),
                 contentDescription = null,
@@ -76,7 +81,7 @@ fun CreateCompanyScreen(
                 contentScale = ContentScale.Crop
             )
 
-            // pulsante back come nelle altre schermate
+            // back
             FilledTonalIconButton(
                 onClick = onBack,
                 modifier = Modifier
@@ -90,10 +95,10 @@ fun CreateCompanyScreen(
                     contentColor = colors.shade600
                 )
             ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Indietro")
             }
 
-            // card centrale con form (stile Home/Join)
+            // card form
             ElevatedCard(
                 shape = RoundedCornerShape(20.dp),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
@@ -110,7 +115,7 @@ fun CreateCompanyScreen(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        "Create your company",
+                        "Crea la tua azienda",
                         style = MaterialTheme.typography.headlineSmall.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = colors.shade900
@@ -119,39 +124,47 @@ fun CreateCompanyScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        "Fields marked * are required.",
+                        "I campi contrassegnati con * sono obbligatori.",
                         style = MaterialTheme.typography.bodySmall.copy(color = colors.shade700)
                     )
 
                     Spacer(Modifier.height(18.dp))
 
-                    // Company name
+                    // Nome azienda — OUTLINED
                     OutlinedTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Company name *") },
+                        label = { Text("Nome azienda *") },
+                        placeholder = { Text("Es. CrewHive S.r.l.") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            keyboardType = KeyboardType.Text
+                        ),
                         isError = nameError,
                         supportingText = {
-                            if (nameError) Text("Please enter a company name", color = MaterialTheme.colorScheme.error)
+                            if (nameError) Text("Inserisci il nome dell’azienda", color = MaterialTheme.colorScheme.error)
                         },
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                         colors = fieldColors(colors)
                     )
 
                     Spacer(Modifier.height(12.dp))
 
-                    // Type (picker)
+                    // Tipo — OUTLINED (readOnly) con overlay cliccabile
                     Box(Modifier.fillMaxWidth()) {
                         OutlinedTextField(
                             value = selectedType?.displayName ?: "",
-                            onValueChange = { },
+                            onValueChange = { /* readOnly */ },
                             readOnly = true,
-                            label = { Text("Type *") },
+                            label = { Text("Tipo *") },
+                            placeholder = { Text("Scegli una categoria") },
                             isError = typeError,
                             supportingText = {
-                                if (typeError) Text("Please choose a type", color = MaterialTheme.colorScheme.error)
+                                if (typeError) Text("Seleziona un tipo", color = MaterialTheme.colorScheme.error)
                             },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth(),
                             colors = fieldColors(colors)
                         )
@@ -167,7 +180,7 @@ fun CreateCompanyScreen(
                     Spacer(Modifier.height(10.dp))
 
                     Text(
-                        "Address (optional — all fields or none)",
+                        "Indirizzo (facoltativo — o tutti i campi o nessuno)",
                         style = MaterialTheme.typography.labelLarge.copy(color = colors.shade700),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -176,61 +189,81 @@ fun CreateCompanyScreen(
                     OutlinedTextField(
                         value = street,
                         onValueChange = { street = it },
-                        label = { Text("Street") },
+                        label = { Text("Via e numero") },
                         singleLine = true,
-                        isError = addressError && street.isBlank(),
+                        isError = anyAddress && street.isBlank(),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth(),
                         colors = fieldColors(colors)
                     )
+
                     Spacer(Modifier.height(12.dp))
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
                             value = zipCode,
-                            onValueChange = { zipCode = it },
-                            label = { Text("ZIP Code") },
+                            onValueChange = { input -> zipCode = input.filter { it.isDigit() } },
+                            label = { Text("CAP") },
                             singleLine = true,
-                            isError = addressError && zipCode.isBlank(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            isError = anyAddress && (!zipValid || zipCode.isBlank()),
+                            supportingText = {
+                                if (anyAddress && !zipValid) Text("Almeno 5 cifre", color = MaterialTheme.colorScheme.error)
+                            },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f),
                             colors = fieldColors(colors)
                         )
                         OutlinedTextField(
                             value = city,
                             onValueChange = { city = it },
-                            label = { Text("City") },
+                            label = { Text("Città") },
                             singleLine = true,
-                            isError = addressError && city.isBlank(),
+                            isError = anyAddress && city.isBlank(),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f),
                             colors = fieldColors(colors)
                         )
                     }
+
                     Spacer(Modifier.height(12.dp))
 
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
                             value = province,
-                            onValueChange = { province = it },
-                            label = { Text("Province") },
+                            onValueChange = { input ->
+                                province = input.uppercase().filter { it.isLetter() }.take(2)
+                            },
+                            label = { Text("Provincia (2 lettere)") },
                             singleLine = true,
-                            isError = addressError && province.isBlank(),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Text,
+                                capitalization = KeyboardCapitalization.Characters
+                            ),
+                            isError = anyAddress && (!provinceValid || province.isBlank()),
+                            supportingText = {
+                                if (anyAddress && !provinceValid) Text("Usa esattamente 2 lettere (es. TN)", color = MaterialTheme.colorScheme.error)
+                            },
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f),
                             colors = fieldColors(colors)
                         )
                         OutlinedTextField(
                             value = country,
                             onValueChange = { country = it },
-                            label = { Text("Country") },
+                            label = { Text("Paese") },
                             singleLine = true,
-                            isError = addressError && country.isBlank(),
+                            isError = anyAddress && country.isBlank(),
+                            shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f),
                             colors = fieldColors(colors)
                         )
                     }
 
-                    if (addressError) {
+                    if (addressError && anyAddress) {
                         Spacer(Modifier.height(6.dp))
                         Text(
-                            "Please complete all address fields or leave them all blank.",
+                            "Completa correttamente tutti i campi dell’indirizzo (Provincia = 2 lettere, CAP = almeno 5 cifre) oppure lasciali vuoti.",
                             color = MaterialTheme.colorScheme.error,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.fillMaxWidth()
@@ -253,14 +286,14 @@ fun CreateCompanyScreen(
                                 brush = androidx.compose.ui.graphics.SolidColor(colors.shade600)
                             ),
                             shape = RoundedCornerShape(12.dp)
-                        ) { Text("Back") }
+                        ) { Text("Indietro") }
 
                         Button(
                             onClick = {
                                 val cleanedName = name.trim()
                                 val type = selectedType ?: return@Button
 
-                                if (allAddressFilled) {
+                                if (allAddressFilled && provinceValid && zipValid) {
                                     val dto = AddressDTO(
                                         street = street.trim(),
                                         city = city.trim(),
@@ -268,7 +301,6 @@ fun CreateCompanyScreen(
                                         province = province.trim(),
                                         country = country.trim()
                                     )
-                                    // invio la DTO completa
                                     onCreateCompanyDto?.invoke(cleanedName, type, dto)
                                 } else {
                                     onCreateCompany?.invoke(cleanedName, type, null)
@@ -283,7 +315,7 @@ fun CreateCompanyScreen(
                                 disabledContainerColor = colors.shade600.copy(alpha = 0.4f),
                                 disabledContentColor = colors.background.copy(alpha = 0.7f)
                             )
-                        ) { Text("Create") }
+                        ) { Text("Crea") }
                     }
                 }
             }
@@ -307,9 +339,12 @@ private fun fieldColors(colors: com.example.myapplication.android.ui.theme.AppCo
     OutlinedTextFieldDefaults.colors(
         focusedBorderColor = colors.shade600,
         unfocusedBorderColor = colors.shade600,
+        errorBorderColor = MaterialTheme.colorScheme.error,
         focusedLabelColor = colors.shade600,
         unfocusedLabelColor = colors.shade600.copy(alpha = 0.7f),
         cursorColor = colors.shade600,
         focusedTextColor = Color(0xFF5D4037),
-        unfocusedTextColor = Color(0xFF5D4037)
+        unfocusedTextColor = Color(0xFF5D4037),
+        errorLabelColor = MaterialTheme.colorScheme.error,
+        errorSupportingTextColor = MaterialTheme.colorScheme.error
     )

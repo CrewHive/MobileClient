@@ -205,11 +205,15 @@ class MainActivity : ComponentActivity() {
                             message = errorMessage,
                             onDismiss = {
                                 showErrorDialog = false
+                                // già avevi:
                                 signInViewModel.consume()
                                 signUpViewModel.consume()
+                                // aggiungi:
+                                companyCreateViewModel.consume()
                             }
                         )
                     }
+
 
                     // STOP qui nello scenario non autenticato
                     return@MyApplicationTheme
@@ -334,8 +338,9 @@ class MainActivity : ComponentActivity() {
                                     initial = AbstractUiState.Idle
                                 )
 
+                                // ⬇️ Gestisci sia Success che Error qui, e CONSUMA lo stato
                                 LaunchedEffect(CompanyCreateUiState) {
-                                    when (CompanyCreateUiState) {
+                                    when (val st = CompanyCreateUiState) {
                                         is AbstractUiState.Success -> {
                                             val acc = TokenManager.jwtToken
                                             val ref = TokenManager.refreshToken
@@ -346,28 +351,23 @@ class MainActivity : ComponentActivity() {
                                                 currentScreen = "Home"
                                             } else {
                                                 hasCompany = false
+                                                currentScreen = "OnboardingScreen"
                                             }
+                                            companyCreateViewModel.consume() // ⬅️ importantissimo
                                         }
                                         is AbstractUiState.Error -> {
-                                            errorTitle = "Company creation error"
-                                            errorMessage =
-                                                (CompanyCreateUiState as AbstractUiState.Error).message
-                                                    .ifBlank { "Impossibile creare l'azienda. Riprova." }
+                                            errorTitle = "Errore creazione azienda"
+                                            errorMessage = st.message.ifBlank { "Esiste già un’azienda con questi dati." }
                                             showErrorDialog = true
+                                            companyCreateViewModel.consume() // ⬅️ così NON si riapre
                                         }
                                         else -> Unit
                                     }
                                 }
 
-                                when (val st = CompanyCreateUiState) {
-                                    is AbstractUiState.Loading -> CircularProgressIndicator()
-                                    is AbstractUiState.Error -> {
-                                        errorTitle = "Company creation error"
-                                        errorMessage =
-                                            st.message.ifBlank { "Impossibile creare l'azienda. Riprova." }
-                                        showErrorDialog = true
-                                    }
-                                    AbstractUiState.Idle, is AbstractUiState.Success -> Unit
+                                // Feedback sincrono: SOLO il loading
+                                if (CompanyCreateUiState is AbstractUiState.Loading) {
+                                    CircularProgressIndicator()
                                 }
 
                                 CreateCompanyScreen(
@@ -380,6 +380,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                 )
                             }
+
+
 
                             else -> CompanyOnboardingScreen(
                                 onCreateCompany = { currentScreen = "CreateCompany" },
@@ -507,13 +509,13 @@ class MainActivity : ComponentActivity() {
                                         "Home" -> HomeRoute(
                                             onOpenMonthlyCalendar = {
                                                 calendarStartInMonthly = true
-                                                calendarFromDrawer = false         // ⬅️ NEW
+                                                calendarFromDrawer = false
                                                 currentScreen = "Calendar"
                                             },
                                             onOpenEmployees = { currentScreen = "Employees" },
                                             onStartCreateEvent = {
                                                 calendarStartCreate = true
-                                                calendarFromDrawer = false         // ⬅️ NEW
+                                                calendarFromDrawer = false
                                                 currentScreen = "Calendar"
                                             }
                                         )
@@ -532,12 +534,14 @@ class MainActivity : ComponentActivity() {
                                                 selectedEmployee = meEmp
                                                 detailFromProfile = true
                                                 showRemoveButton = false
+                                                showingSendScreen = false
+                                                selectedNotification = null
                                                 currentScreen = "EmployeeDetail"
                                             },
                                             onLeftCompany = {
                                                 calVm.onCompanyChanged()
                                                 hasCompany = false
-                                                currentScreen = "JoinCompanyCode"
+                                                currentScreen = "OnboardingScreen"
                                             },
                                             onAccountDeleted = {
                                                 showLogoutConfirm = false
@@ -647,11 +651,15 @@ class MainActivity : ComponentActivity() {
                             message = errorMessage,
                             onDismiss = {
                                 showErrorDialog = false
+                                // già avevi:
                                 signInViewModel.consume()
                                 signUpViewModel.consume()
+                                // aggiungi:
+                                companyCreateViewModel.consume()
                             }
                         )
                     }
+
                 }
             }
         }

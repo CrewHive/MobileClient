@@ -164,6 +164,14 @@ interface ApiService {
         @Path("targetId") targetId: Long
     ): Response<UserWithTimeParams2DTO>
 
+    // ApiService.kt  — aggiungi in fondo alla sezione USER/COMPANY
+    @DELETE("/company/{companyId}/remove/{targetId}")
+    suspend fun removeUserFromCompany(
+        @Path("companyId") companyId: Long,
+        @Path("targetId") targetUserId: Long
+    ): Response<Unit>
+
+
 
 }
 
