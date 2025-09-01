@@ -35,9 +35,16 @@ fun ParticipantRow(
     currentTemplatePreview: CalendarEvent? = null
 ) {
     val colors = CustomTheme.colors
+
+    // Eventi effettivi dell’utente nella settimana
     val participantEvents = userEvents.filter { it.participants.contains(name) }
     val weeklyTotal = participantEvents.sumOf { it.getDurationInHours() }
 
+    // Se la riga è selezionata e c’è il "preview" dello shift, somma la durata del preview
+    val extraHours = if (isSelected && currentTemplatePreview != null) {
+        currentTemplatePreview.getDurationInHours()
+    } else 0
+    val displayTotal = weeklyTotal + extraHours
 
     Row(
         modifier = Modifier
@@ -69,11 +76,13 @@ fun ParticipantRow(
         Column(modifier = Modifier.width(100.dp)) {
             Text(text = abbreviaNomeCompleto(name), fontSize = 16.sp, color = colors.shade950)
             Text(
-                text = "$weeklyTotal / $weeklyHours",
+                text = "$displayTotal / $weeklyHours",
                 fontSize = 12.sp,
-                color = colors.shade800
+                color = if (displayTotal <= weeklyHours) colors.shade800 else colors.error
             )
         }
+
+        // Mostra il mini-calendario includendo il preview se selezionato
         val previewEvent = if (isSelected && currentTemplatePreview != null) {
             currentTemplatePreview.copy(participants = listOf(name))
         } else null
@@ -87,7 +96,6 @@ fun ParticipantRow(
                 .weight(1f)
                 .height(60.dp)
         )
-
     }
 }
 
@@ -98,7 +106,6 @@ fun abbreviaNomeCompleto(nomeCompleto: String): String {
         val cognome = parts.subList(1, parts.size).joinToString(" ")
         "$inizialeNome. $cognome"
     } else {
-        nomeCompleto // fallback: restituisce com'è
+        nomeCompleto
     }
 }
-

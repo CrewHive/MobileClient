@@ -60,4 +60,10 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
+    implementation("androidx.compose.runtime:runtime-saveable")
+    implementation ("com.google.accompanist:accompanist-swiperefresh:0.34.0")
+    implementation("androidx.compose.foundation:foundation")
+
+
+
 }

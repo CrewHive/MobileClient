@@ -4,14 +4,19 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.android.ui.components.messages.NotificationCard
@@ -27,87 +32,165 @@ fun NotificationScreen(
 ) {
     val colors = CustomTheme.colors
 
-    val dateFormatter = remember {
-        java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-    }
-
-    val calendar = Calendar.getInstance()
-
-    fun getDateOffset(daysOffset: Int): String {
-        calendar.time = Date()
-        calendar.add(Calendar.DAY_OF_YEAR, daysOffset)
-        return dateFormatter.format(calendar.time)
-    }
-
-    val sampleNotifications = listOf(
-        NotificationData(
-            title = "Notifica Scaduta",
-            sender = "Sistema",
-            createdAt = getDateOffset(-2) + " 08:00",
-            deadline = getDateOffset(-2), // BLU
-            body = "Questa notifica è scaduta ieri."
-        ),
-        NotificationData(
-            title = "Deadline Imminente",
-            sender = "Team Leader",
-            createdAt = getDateOffset(-1) + " 10:00",
-            deadline = getDateOffset(1), // ROSSO
-            body = "Questa notifica scade domani."
-        ),
-        NotificationData(
-            title = "Scadenza tra 3 Giorni",
-            sender = "Ufficio",
-            createdAt = getDateOffset(0) + " 12:00",
-            deadline = getDateOffset(3), // GIALLO
-            body = "La scadenza è tra qualche giorno."
-        ),
-        NotificationData(
-            title = "Scadenza Lontana",
-            sender = "Amministrazione",
-            createdAt = getDateOffset(0) + " 09:30",
-            deadline = getDateOffset(7), // VERDE
-            body = "Hai ancora tempo per questa notifica."
-        )
-    )
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .background(colors.background)
-                .padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Messaggi",
-                fontSize = 20.sp,
-                color = colors.shade950,
-                modifier = Modifier.weight(1f)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(listOf(colors.shade100, Color.White))
             )
-            IconButton(onClick = onEditClick) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = colors.shade500
-                )
+            .padding(24.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Surface(
+                color = colors.shade50,
+                tonalElevation = 2.dp,
+                shadowElevation = 2.dp,
+                shape = RoundedCornerShape(20.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Notifications,
+                        contentDescription = null,
+                        tint = colors.shade950,
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "Messaggi",
+                        color = colors.shade950,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                }
             }
-        }
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(sampleNotifications) { notification ->
-                NotificationCard(
-                    title = notification.title,
-                    sender = notification.sender,
-                    createdAt = notification.createdAt,
-                    deadline = notification.deadline,
-                    onClick = { onNotificationClick(notification) }
+            Text(
+                text = "Coming soon",
+                color = colors.shade950,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+
+            Text(
+                text = "La messaggistica arriverà a breve.\nStiamo mettendo a punto notifiche smart e filtri utili.",
+                color = colors.shade600,
+                style = MaterialTheme.typography.bodyMedium,
+                lineHeight = 20.sp,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+
+            Surface(
+                color = colors.shade950,
+                shape = RoundedCornerShape(999.dp)
+            ) {
+                Text(
+                    text = "In arrivo",
+                    color = Color.White,
+                    modifier = Modifier
+                        .padding(horizontal = 14.dp, vertical = 8.dp)
+                        .fillMaxWidth(),
+                    style = MaterialTheme.typography.labelLarge,
+                    textAlign = TextAlign.Center
                 )
             }
         }
     }
 }
+
+//    val colors = CustomTheme.colors
+//
+//    val dateFormatter = remember {
+//        java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+//    }
+//
+//    val calendar = Calendar.getInstance()
+//
+//    fun getDateOffset(daysOffset: Int): String {
+//        calendar.time = Date()
+//        calendar.add(Calendar.DAY_OF_YEAR, daysOffset)
+//        return dateFormatter.format(calendar.time)
+//    }
+//
+//    val sampleNotifications = listOf(
+//        NotificationData(
+//            title = "Notifica Scaduta",
+//            sender = "Sistema",
+//            createdAt = getDateOffset(-2) + " 08:00",
+//            deadline = getDateOffset(-2), // BLU
+//            body = "Questa notifica è scaduta ieri."
+//        ),
+//        NotificationData(
+//            title = "Deadline Imminente",
+//            sender = "Team Leader",
+//            createdAt = getDateOffset(-1) + " 10:00",
+//            deadline = getDateOffset(1), // ROSSO
+//            body = "Questa notifica scade domani."
+//        ),
+//        NotificationData(
+//            title = "Scadenza tra 3 Giorni",
+//            sender = "Ufficio",
+//            createdAt = getDateOffset(0) + " 12:00",
+//            deadline = getDateOffset(3), // GIALLO
+//            body = "La scadenza è tra qualche giorno."
+//        ),
+//        NotificationData(
+//            title = "Scadenza Lontana",
+//            sender = "Amministrazione",
+//            createdAt = getDateOffset(0) + " 09:30",
+//            deadline = getDateOffset(7), // VERDE
+//            body = "Hai ancora tempo per questa notifica."
+//        )
+//    )
+//
+//    Column(modifier = Modifier.fillMaxSize()) {
+//        Row(
+//            modifier = Modifier
+//                .fillMaxWidth()
+//                .height(56.dp)
+//                .background(colors.background)
+//                .padding(horizontal = 16.dp),
+//            horizontalArrangement = Arrangement.SpaceBetween,
+//            verticalAlignment = Alignment.CenterVertically
+//        ) {
+//            Text(
+//                text = "Messaggi",
+//                fontSize = 20.sp,
+//                color = colors.shade950,
+//                modifier = Modifier.weight(1f)
+//            )
+//            IconButton(onClick = onEditClick) {
+//                Icon(
+//                    imageVector = Icons.Default.Edit,
+//                    contentDescription = "Edit",
+//                    tint = colors.shade500
+//                )
+//            }
+//        }
+//
+//        LazyColumn(modifier = Modifier.fillMaxSize()) {
+//            items(sampleNotifications) { notification ->
+//                NotificationCard(
+//                    title = notification.title,
+//                    sender = notification.sender,
+//                    createdAt = notification.createdAt,
+//                    deadline = notification.deadline,
+//                    onClick = { onNotificationClick(notification) }
+//                )
+//            }
+//        }
+//    }
+//}
 
 // Data model
 data class NotificationData(

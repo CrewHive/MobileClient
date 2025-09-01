@@ -43,7 +43,7 @@ data class AppColors(
 
 private val LightAppColors = AppColors(
     shade50      = Color(0xFFFCFBEA),
-    shade100     = Color(0xFFFAF7C7),
+    shade100     = Color(0xFFFFF8E1),
     shade200     = Color(0xFFF6EC92),
     shade300     = Color(0xFFF0D954),
     shade400     = Color(0xFFEAC525),
@@ -67,7 +67,7 @@ private val LightAppColors = AppColors(
 
 private val DarkAppColors = AppColors(
     shade50      = Color(0xFFFCFBEA),
-    shade100     = Color(0xFFFAF7C7),
+    shade100     = Color(0xFFFFF8E1),
     shade200     = Color(0xFFF6EC92),
     shade300     = Color(0xFFF0D954),
     shade400     = Color(0xFFEAC525),

@@ -23,8 +23,10 @@ import androidx.compose.ui.unit.sp
 import com.example.myapplication.android.state.GlobalParticipants
 import com.example.myapplication.android.ui.components.blocks.ParticipantRow
 import com.example.myapplication.android.ui.components.calendar.CalendarEvent
+import com.example.myapplication.android.ui.components.calendar.CalendarItemKind
 import com.example.myapplication.android.ui.components.navigation.ShiftTemplate
 import com.example.myapplication.android.ui.components.search.EmployeeSearchBar
+import com.example.myapplication.android.ui.state.CompanyEmployee
 import com.example.myapplication.android.ui.state.getStartOfWeek
 import com.example.myapplication.android.ui.theme.CustomTheme
 
@@ -36,25 +38,26 @@ fun ShiftParticipantSelectionScreen(
     selectedDate: Calendar,
     onDateChange: (Calendar) -> Unit,
     shiftTemplate: ShiftTemplate,
+    allEmployees: List<CompanyEmployee>,            // lista reale
     onBack: () -> Unit,
-    onConfirm: (CalendarEvent) -> Unit,
-    events: List<CalendarEvent>
+    onConfirm: (CalendarEvent, List<Long>) -> Unit, // ritorna anche gli ID
+    events: List<CalendarEvent>,
+    initialSelectedUserIds: List<Long> = emptyList() // ⬅️ NUOVO (opzionale)
 ) {
     val colors = CustomTheme.colors
-
-    val allEvents = events
-    val allParticipants = remember { GlobalParticipants.list }
 
     val sdf = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
     var showDatePicker by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    val selectedNames = remember { mutableStateListOf<String>() }
 
-    val selectedWeekStart = remember(selectedDate.timeInMillis) {
-        getStartOfWeek(selectedDate)
+    // ⬇️ Stato selezione basato su ID reali, inizializzato dagli ID passati
+    val selectedUserIds = remember(initialSelectedUserIds) {
+        mutableStateListOf<Long>().apply { addAll(initialSelectedUserIds) }
     }
 
-    val currentPreviewEvent = remember {
+    val selectedWeekStart = remember(selectedDate.timeInMillis) { getStartOfWeek(selectedDate) }
+
+    val currentPreviewEvent = remember(shiftTemplate, selectedDate) {
         mutableStateOf(
             CalendarEvent(
                 title = shiftTemplate.title,
@@ -63,7 +66,9 @@ fun ShiftParticipantSelectionScreen(
                 description = "Preview",
                 color = shiftTemplate.color,
                 date = selectedDate,
-                participants = emptyList()
+                participants = emptyList(),
+                id = -System.currentTimeMillis(),
+                kind = CalendarItemKind.SHIFT
             )
         )
     }
@@ -72,139 +77,131 @@ fun ShiftParticipantSelectionScreen(
         CustomDatePickerDialog(
             onDismiss = { showDatePicker = false },
             onDateSelected = {
-                val parts = it.split("/")
-                val cal = Calendar.getInstance().apply {
-                    set(parts[2].toInt(), parts[1].toInt() - 1, parts[0].toInt())
-                }
+                val (d, m, y) = it.split("/").map(String::toInt)
+                val cal = Calendar.getInstance().apply { set(y, m - 1, d) }
                 onDateChange(cal)
                 currentPreviewEvent.value = currentPreviewEvent.value.copy(date = cal)
                 showDatePicker = false
             }
         )
-
     }
 
-    Column(modifier = Modifier
-        .fillMaxSize()
-        .background(colors.background)) {
-        // Top Bar
-        Column {
-            Spacer(Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.Absolute.SpaceBetween) {
-                IconButton(onClick = { onBack() }) {
-                    Icon(
-                        Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = colors.shade950,
-                        modifier = Modifier.width(32.dp)
-                    )
-                }
-                IconButton(onClick = {
-                    val newEvent = CalendarEvent(
-                        title = shiftTemplate.title,
-                        startTime = shiftTemplate.startTime,
-                        endTime = shiftTemplate.endTime,
-                        description = shiftTemplate.description,
-                        color = shiftTemplate.color,
-                        date = selectedDate,
-                        participants = selectedNames.toList()
-                    )
-                    onConfirm(newEvent)
-
-                }) {
-                    Icon(
-                        Icons.Default.Check,
-                        contentDescription = "Confirm",
-                        tint = colors.shade950,
-                        modifier = Modifier.width(32.dp)
-                    )
-                }
+    Column(Modifier.fillMaxSize().background(colors.background)) {
+        // Top bar
+        Spacer(Modifier.height(16.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Default.ArrowBack, null, tint = colors.shade950, modifier = Modifier.width(32.dp))
             }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 16.dp, start = 10.dp, end = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-
-                Spacer(Modifier.width(10.dp))
-
-                Box(
-                    modifier = Modifier
-                        .size(50.dp)
-                        .background(shiftTemplate.color, shape = CircleShape)
+            IconButton(onClick = {
+                val newEvent = CalendarEvent(
+                    title = shiftTemplate.title,
+                    startTime = shiftTemplate.startTime,
+                    endTime = shiftTemplate.endTime,
+                    description = shiftTemplate.description,
+                    color = shiftTemplate.color,
+                    date = selectedDate,
+                    participants = emptyList(),
+                    id = -System.currentTimeMillis(),
+                    kind = CalendarItemKind.SHIFT
                 )
-
-                Spacer(Modifier.width(10.dp))
-
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-
-                        Spacer(Modifier.width(8.dp))
-                        Text(shiftTemplate.title, color = colors.shade950, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(4.dp))
-                    Row {
-                        Text(
-                            "${sdf.format(selectedDate.time)}",
-                            color = colors.shade950.copy(alpha = 0.7f),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold)
-                        Text(
-                            "${shiftTemplate.startTime} - ${shiftTemplate.endTime}",
-                            color = colors.shade950.copy(alpha = 0.7f),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                Spacer(Modifier.weight(1f))
+                onConfirm(newEvent, selectedUserIds.toList())
+            }) {
+                Icon(Icons.Default.Check, null, tint = colors.shade950, modifier = Modifier.width(32.dp))
             }
         }
 
-        // Date Picker
+        // Header
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp, bottom = 16.dp, start = 10.dp, end = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.size(50.dp).background(shiftTemplate.color, shape = CircleShape))
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(shiftTemplate.title, color = colors.shade950, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(4.dp))
+                Row {
+                    Text(
+                        sdf.format(selectedDate.time),
+                        color = colors.shade950.copy(alpha = 0.7f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "${shiftTemplate.startTime} - ${shiftTemplate.endTime}",
+                        color = colors.shade950.copy(alpha = 0.7f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            Spacer(Modifier.weight(1f))
+        }
+
+        // Date picker
         Button(
             onClick = { showDatePicker = true },
             colors = ButtonDefaults.buttonColors(containerColor = colors.shade800),
             modifier = Modifier.padding(horizontal = 16.dp)
-        ) {
-            Text("Cambia data", color = Color.White)
+        ) { Text("Cambia data", color = Color.White) }
+
+        // Search
+        EmployeeSearchBar(searchText = searchQuery, onSearchChange = { searchQuery = it })
+
+        // Lista dipendenti REALI (filtrati)
+        val filtered = remember(searchQuery, allEmployees) {
+            allEmployees.filter { it.name.contains(searchQuery, ignoreCase = true) }
         }
 
-        // Search Bar
-        EmployeeSearchBar(
-            searchText = searchQuery,
-            onSearchChange = { searchQuery = it }
-        )
+        val weekEnd = remember(selectedWeekStart.timeInMillis) {
+            (selectedWeekStart.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 7) }
+        }
 
-        // Lista partecipanti filtrata
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(allParticipants.filter { it.contains(searchQuery, ignoreCase = true) }) { name ->
-                val weekEnd = (selectedWeekStart.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 7) }
+        LazyColumn(Modifier.fillMaxSize()) {
+            items(filtered, key = { it.userId }) { emp ->
+                val uid = emp.userId.toLongOrNull()
+                val name = emp.name
 
-                val userEvents = allEvents.filter {
+                // Eventi della settimana mostrati per nome (UI attuale usa i nomi nei participants)
+                val userEvents = events.filter {
                     it.participants.contains(name) &&
-                            !it.date.before(selectedWeekStart) && !it.date.after(weekEnd)
+                            !it.date.before(selectedWeekStart) &&
+                            !it.date.after(weekEnd)
                 }
 
-                val showPreview = name in selectedNames
-                val previewEvent = if (showPreview) currentPreviewEvent.value.copy(participants = listOf(name)) else null
+                val isSel = uid != null && selectedUserIds.contains(uid)
+                val preview = if (isSel) currentPreviewEvent.value.copy(participants = listOf(name)) else null
 
                 ParticipantRow(
                     name = name,
-                    weeklyHours = 40,
+                    weeklyHours = emp.weeklyHours,
                     userEvents = userEvents,
                     miniCalendarWeekStart = selectedWeekStart,
                     selectedDate = selectedDate,
-                    isSelected = name in selectedNames,
+                    isSelected = isSel,
                     onClick = {
-                        if (name in selectedNames) selectedNames.remove(name)
-                        else selectedNames.add(name)
+                        uid?.let {
+                            if (selectedUserIds.contains(it)) selectedUserIds.remove(it) else selectedUserIds.add(it)
+                        }
                     },
-                    currentTemplatePreview = previewEvent
+                    currentTemplatePreview = preview
                 )
             }
         }
     }
 }
+
+

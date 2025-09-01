@@ -16,8 +16,10 @@ object ApiClient {
         .build()
 
     val retrofit: Retrofit = Retrofit.Builder()
-        .baseUrl("http://100.105.186.65:8080/") // cambia col tuo endpoint
+        .baseUrl("https://domestic-horatia-crewhive-23779c2f.koyeb.app/") // cambia col tuo endpoint
         .addConverterFactory(GsonConverterFactory.create())
         .client(client)
         .build()
 }
+
+//http://100.105.186.65:8080/

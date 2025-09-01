@@ -127,9 +127,10 @@ fun TemplatePrivatePopup(
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = {
-                    if (title.isNotBlank() && startTime.isNotBlank() && endTime.isNotBlank()) {
-                        onSave(ShiftTemplate(title, startTime, endTime, selectedColor, description))
-                    }
+                    val safeTitle = title.ifBlank { "Nuovo Template" }
+                    val safeStart = if (startTime.isBlank()) "09:00" else startTime
+                    val safeEnd   = if (endTime.isBlank())   "17:00" else endTime
+                    onSave(ShiftTemplate(safeTitle, safeStart, safeEnd, selectedColor, description))
                 },colors = ButtonDefaults.buttonColors(containerColor = colors.shade800)) {
                     Text("Salva",
                         color = colors.shade100)

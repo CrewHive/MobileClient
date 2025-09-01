@@ -3,12 +3,13 @@ package com.example.myapplication.android.ui.components.dialogs
 
 import CustomDatePickerDialog
 import CustomTimePickerDialog
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,35 +24,50 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.myapplication.android.state.GlobalParticipants
+import androidx.compose.ui.window.DialogProperties
 import com.example.myapplication.android.ui.components.pickers.AdvancedColorPickerDialog
 import com.example.myapplication.android.ui.components.calendar.CalendarEvent
+import com.example.myapplication.android.ui.components.calendar.CalendarItemKind
+import com.example.myapplication.android.ui.state.CompanyEmployee
 import com.example.myapplication.android.ui.theme.CustomTheme
+import com.example.myapplication.android.ui.components.navigation.ShiftTemplate // NEW
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+enum class CreateMode { PRIVATE_EVENT, PUBLIC_SHIFT }
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun FullscreenPopupDialog(
+    mode: CreateMode,
     onDismiss: () -> Unit,
-    onAddEvent: (CalendarEvent) -> Unit,
-    selectedDate: Calendar
+    onAddEvent: (CalendarEvent, List<Long>, Boolean) -> Unit, // usato ora ANCHE per i turni (isPublic = true)
+    onAddEmployeesClick: (CalendarEvent) -> Unit,             // legacy, non più usato qui ma lasciato per compatibilità
+    selectedDate: Calendar,
+    allEmployees: List<CompanyEmployee>
 ) {
     val colors = CustomTheme.colors
+    val isPublic = (mode == CreateMode.PUBLIC_SHIFT)
+    val dialogTitle = if (isPublic) "Aggiungi turno" else "Aggiungi evento"
 
-    var selectedOption by remember { mutableStateOf(EventVisibility.PERSONALE) }
-    val allEmployees = GlobalParticipants.list
-    val selectedEmployees = remember { mutableStateListOf<String>() }
-    var expanded by remember { mutableStateOf(false) }
-
-    val titolo = remember { mutableStateOf("") }
-    val data = remember { mutableStateOf("") }
-    val selectedPickerDate = remember { mutableStateOf(selectedDate.clone() as Calendar) }
-    val oraInizio = remember { mutableStateOf("") }
-    val oraFine = remember { mutableStateOf("") }
-    val descrizione = remember { mutableStateOf("") }
+    // STATE
+    var titolo by remember { mutableStateOf("") }
+    var descrizione by remember { mutableStateOf("") }
+    var selectedPickerDate by remember { mutableStateOf(selectedDate.clone() as Calendar) }
+    var oraInizio by remember { mutableStateOf("") }
+    var oraFine by remember { mutableStateOf("") }
     var selectedColor by remember { mutableStateOf(Color(0xFF81C784)) }
     var showColorDialog by remember { mutableStateOf(false) }
+
+    // Partecipanti (solo per turni)
+    val selectedEmployeeIds = remember { mutableStateListOf<Long>() }        // lista reattiva
+    val chosenNames by remember(allEmployees) {
+        derivedStateOf {
+            val ids = selectedEmployeeIds.toList()
+            allEmployees.filter { it.userId.toLongOrNull() in ids }.map { it.name }
+        }
+    }
+    var showParticipantPicker by remember { mutableStateOf(false) }          // NEW
 
     val colorOptions = listOf(
         Color(0xFF81C784), Color(0xFF64B5F6), Color(0xFFFFB74D),
@@ -62,17 +78,15 @@ fun FullscreenPopupDialog(
     var showCustomTimePickerStart by remember { mutableStateOf(false) }
     var showCustomTimePickerEnd by remember { mutableStateOf(false) }
 
-    val timeError by remember {
+    val timeError by remember(oraInizio, oraFine) {
         derivedStateOf {
             try {
-                val inizio = oraInizio.value.split(":").map { it.toInt() }
-                val fine = oraFine.value.split(":").map { it.toInt() }
-                val startMinutes = inizio[0] * 60 + inizio[1]
-                val endMinutes = fine[0] * 60 + fine[1]
-                startMinutes >= endMinutes
-            } catch (e: Exception) {
-                false
-            }
+                val (h1, m1) = oraInizio.split(":").map { it.toInt() }
+                val (h2, m2) = oraFine.split(":").map { it.toInt() }
+                val s = h1 * 60 + m1
+                val e = h2 * 60 + m2
+                e <= s
+            } catch (_: Exception) { false }
         }
     }
 
@@ -90,11 +104,10 @@ fun FullscreenPopupDialog(
         CustomDatePickerDialog(
             onDismiss = { showCustomDatePicker = false },
             onDateSelected = {
-                data.value = it
                 val parts = it.split("/")
                 val cal = Calendar.getInstance()
                 cal.set(parts[2].toInt(), parts[1].toInt() - 1, parts[0].toInt())
-                selectedPickerDate.value = cal
+                selectedPickerDate = cal
                 showCustomDatePicker = false
             }
         )
@@ -104,7 +117,7 @@ fun FullscreenPopupDialog(
         CustomTimePickerDialog(
             onDismiss = { showCustomTimePickerStart = false },
             onTimeSelected = {
-                oraInizio.value = it
+                oraInizio = it
                 showCustomTimePickerStart = false
             }
         )
@@ -114,7 +127,7 @@ fun FullscreenPopupDialog(
         CustomTimePickerDialog(
             onDismiss = { showCustomTimePickerEnd = false },
             onTimeSelected = {
-                oraFine.value = it
+                oraFine = it
                 showCustomTimePickerEnd = false
             }
         )
@@ -128,26 +141,22 @@ fun FullscreenPopupDialog(
                 .fillMaxWidth(0.95f)
                 .fillMaxHeight(0.85f)
         ) {
-            Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = onDismiss) {
                         Text("Chiudi", color = colors.shade800)
                     }
                 }
 
-                Text("Aggiungi Evento", fontSize = 20.sp, color = colors.shade950)
-                Spacer(modifier = Modifier.height(16.dp))
-
-                AnimatedVisibilitySlider(
-                    selected = selectedOption,
-                    onSelectionChange = { selectedOption = it }
-                )
-
+                Text(dialogTitle, fontSize = 20.sp, color = colors.shade950)
                 Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedTextField(
-                    value = titolo.value,
-                    onValueChange = { titolo.value = it },
+                    value = titolo,
+                    onValueChange = { titolo = it },
                     label = { Text("Titolo") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -161,14 +170,14 @@ fun FullscreenPopupDialog(
                     )
                 )
 
-                Spacer(modifier = Modifier.height(8.dp).fillMaxWidth())
+                Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = { showCustomDatePicker = true },
                     border = BorderStroke(2.dp, colors.shade800),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)) {
-                    Text(
-                        if (data.value.isBlank()) "Seleziona Data" else "Data: ${data.value}",
-                        color = colors.shade800)
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                ) {
+                    val fmt = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                    Text("Data: ${fmt.format(selectedPickerDate.time)}", color = colors.shade800)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -177,29 +186,30 @@ fun FullscreenPopupDialog(
                         modifier = Modifier.weight(1f).padding(end = 4.dp),
                         onClick = { showCustomTimePickerStart = true },
                         border = BorderStroke(2.dp, colors.shade800),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)) {
-                        Text(if (oraInizio.value.isBlank()) "Ora Inizio" else oraInizio.value,
-                            color = colors.shade800)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    ) {
+                        Text(if (oraInizio.isBlank()) "Ora Inizio" else oraInizio, color = colors.shade800)
                     }
 
                     Button(
                         modifier = Modifier.weight(1f).padding(start = 4.dp),
                         onClick = { showCustomTimePickerEnd = true },
                         border = BorderStroke(2.dp, colors.shade800),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)) {
-                        Text(if (oraFine.value.isBlank()) "Ora Fine" else oraFine.value,
-                            color = colors.shade800)
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent)
+                    ) {
+                        Text(if (oraFine.isBlank()) "Ora Fine" else oraFine, color = colors.shade800)
                     }
                 }
 
                 if (timeError) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text("⚠ L'orario di fine deve essere dopo quello di inizio", color = Color.Red, fontSize = 12.sp)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
                 OutlinedTextField(
-                    value = descrizione.value,
-                    onValueChange = { descrizione.value = it },
+                    value = descrizione,
+                    onValueChange = { descrizione = it },
                     label = { Text("Descrizione") },
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
@@ -213,62 +223,43 @@ fun FullscreenPopupDialog(
                     )
                 )
 
-                if (selectedOption == EventVisibility.PUBBLICO) {
+                // --- PARTECIPANTI (TURNI PUBBLICI): chip centrati + bottone sotto, senza chiudere il popup ---
+                if (isPublic) {
                     Spacer(modifier = Modifier.height(12.dp))
                     Text("Partecipanti", color = colors.shade950)
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = !expanded },
 
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        OutlinedTextField(
-                            readOnly = true,
-                            value = selectedEmployees.take(3).joinToString(", ") +
-                                    if (selectedEmployees.size > 3) "…" else "",
-                            onValueChange = {},
-                            label = { Text("Seleziona partecipanti") },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded)
-                            },
-                            modifier = Modifier.menuAnchor().fillMaxWidth(),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedTextColor = colors.shade800,
-                                unfocusedTextColor = colors.shade800,
-                                focusedBorderColor = colors.shade800,
-                                unfocusedBorderColor = colors.shade800,
-                                focusedLabelColor = colors.shade800,
-                                unfocusedLabelColor = colors.shade800.copy(alpha = 0.7f),
-                                cursorColor = colors.shade800
-                            )
-                        )
-
-                        ExposedDropdownMenu(
-                            expanded = expanded,
-                            onDismissRequest = { expanded = false },
-                            modifier = Modifier.background(color = colors.background),
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            allEmployees.forEach { name ->
-                                val isSelected = selectedEmployees.contains(name)
-
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = name,
-                                            color = if (isSelected) Color.White else Color.Black
-                                        )
-                                    },
-                                    onClick = {
-                                        if (isSelected) selectedEmployees.remove(name)
-                                        else selectedEmployees.add(name)
-                                    },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            if (isSelected) colors.shade800 else Color.Transparent,
-                                            shape = RoundedCornerShape(4.dp)
-                                        )
+                            chosenNames.forEach { name ->
+                                AssistChip(
+                                    onClick = {},
+                                    enabled = false,
+                                    label = { Text(name) },
+                                    colors = AssistChipDefaults.assistChipColors(
+                                        disabledContainerColor = colors.shade100,
+                                        disabledLabelColor = colors.shade800
+                                    )
                                 )
                             }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedButton(
+                            onClick = { showParticipantPicker = true }, // <-- NON chiudiamo più il popup
+                            border = BorderStroke(1.dp, colors.shade800),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = colors.shade800)
+                        ) {
+                            Text(if (chosenNames.isEmpty()) "Gestisci partecipanti…" else "Modifica partecipanti…")
                         }
                     }
                 }
@@ -289,25 +280,18 @@ fun FullscreenPopupDialog(
                                     .background(color)
                                     .border(
                                         width = if (isSelected) 2.dp else 1.dp,
-                                        color = if (isSelected) colors.shade800 else colors.shade800,
+                                        color = colors.shade800,
                                         shape = CircleShape
                                     )
-                                    .clickable { selectedColor = color },
-                                contentAlignment = Alignment.Center
-                            ) {}
+                                    .clickable { selectedColor = color }
+                            )
                         }
-
-                        val isCustomSelected = selectedColor !in colorOptions
                         Box(
                             modifier = Modifier
                                 .size(36.dp)
                                 .clip(CircleShape)
-                                .background(if (isCustomSelected) selectedColor else colors.background)
-                                .border(
-                                    width = if (isCustomSelected) 2.dp else 1.dp,
-                                    color = if (isCustomSelected) colors.shade800 else colors.shade800,
-                                    shape = CircleShape
-                                )
+                                .background(colors.background)
+                                .border(1.dp, colors.shade800, CircleShape)
                                 .clickable { showColorDialog = true },
                             contentAlignment = Alignment.Center
                         ) {
@@ -317,107 +301,92 @@ fun FullscreenPopupDialog(
                                 tint = colors.shade800
                             )
                         }
-
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = {
-                        if (!timeError && titolo.value.isNotBlank() && oraInizio.value.isNotBlank() && oraFine.value.isNotBlank()) {
-                            val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                            val dataString = sdf.format(selectedPickerDate.value.time)
 
-                            val event = CalendarEvent(
-                                startTime = oraInizio.value,
-                                endTime = oraFine.value,
-                                title = titolo.value,
-                                description = descrizione.value,
-                                color = selectedColor,
-                                date = selectedPickerDate.value.clone() as Calendar,
-                                participants = if (selectedOption == EventVisibility.PUBBLICO) selectedEmployees.toList() else listOf()
-                            )
-                            onAddEvent(event)
-                        }
-                    },
-                    modifier = Modifier.align(Alignment.End),
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.shade800)
-                ) {
-                    Text(
-                        text = if (selectedOption == EventVisibility.PERSONALE) "Aggiungi" else "Richiedi",
-                        color = colors.shade100
-                    )
+                // FOOTER ACTION:
+                if (!isPublic) {
+                    // Evento personale: creazione diretta
+                    Button(
+                        onClick = {
+                            if (!timeError && titolo.isNotBlank() && oraInizio.isNotBlank() && oraFine.isNotBlank()) {
+                                val event = CalendarEvent(
+                                    id = -System.currentTimeMillis(),
+                                    startTime = oraInizio,
+                                    endTime = oraFine,
+                                    title = titolo,
+                                    description = descrizione,
+                                    color = selectedColor,
+                                    date = selectedPickerDate.clone() as Calendar,
+                                    participants = emptyList(),
+                                    kind = CalendarItemKind.EVENT
+                                )
+                                onAddEvent(event, emptyList(), false)
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.End),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.shade800)
+                    ) { Text("Aggiungi", color = colors.shade100) }
+                } else {
+                    // Turno pubblico: conferma finale dal popup con gli ID selezionati
+                    Button(
+                        onClick = {
+                            if (!timeError && titolo.isNotBlank() && oraInizio.isNotBlank() && oraFine.isNotBlank()) {
+                                val shift = CalendarEvent(
+                                    id = -System.currentTimeMillis(),
+                                    startTime = oraInizio,
+                                    endTime = oraFine,
+                                    title = titolo,
+                                    description = descrizione,
+                                    color = selectedColor,
+                                    date = selectedPickerDate.clone() as Calendar,
+                                    participants = emptyList(),
+                                    kind = CalendarItemKind.SHIFT
+                                )
+                                onAddEvent(shift, selectedEmployeeIds.toList(), true) // <-- isPublic = true
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.End),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.shade800)
+                    ) { Text("Crea turno", color = colors.shade100) }
                 }
             }
         }
     }
-}
 
-@Composable
-fun AnimatedVisibilitySlider(
-    selected: EventVisibility,
-    onSelectionChange: (EventVisibility) -> Unit
-) {
-    val colors = CustomTheme.colors
-
-    val totalWidth = 300.dp
-    val sliderHeight = 44.dp
-    val indicatorWidth = totalWidth / 2
-
-    val indicatorOffset by animateDpAsState(
-        targetValue = if (selected == EventVisibility.PERSONALE) 0.dp else indicatorWidth,
-        label = "Segment Offset"
-    )
-
-    Box(
-        modifier = Modifier
-            .width(totalWidth)
-            .height(sliderHeight)
-            .clip(RoundedCornerShape(24.dp))
-            .background(colors.background)
-    ) {
-        Box(
-            modifier = Modifier
-                .offset(x = indicatorOffset)
-                .width(indicatorWidth)
-                .fillMaxHeight()
-                .clip(RoundedCornerShape(24.dp))
-                .background(colors.shade800)
-        )
-
-        Row(modifier = Modifier.fillMaxSize()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable { onSelectionChange(EventVisibility.PERSONALE) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Personale",
-                    color = if (selected == EventVisibility.PERSONALE) Color.White else Color.Black,
-                    fontSize = 14.sp
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight()
-                    .clickable { onSelectionChange(EventVisibility.PUBBLICO) },
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Pubblico",
-                    color = if (selected == EventVisibility.PUBBLICO) Color.White else Color.Black,
-                    fontSize = 14.sp
+    // --- FULLSCREEN: selezione partecipanti integrata (stessa UX dell'edit) ---
+    if (showParticipantPicker && isPublic) {
+        val template = remember(titolo, oraInizio, oraFine, selectedColor, descrizione) {
+            ShiftTemplate(
+                title = titolo.ifBlank { "Turno" },
+                startTime = oraInizio,
+                endTime = oraFine,
+                description = descrizione,
+                color = selectedColor
+            )
+        }
+        androidx.compose.ui.window.Dialog(
+            onDismissRequest = { showParticipantPicker = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(color = Color.White, modifier = Modifier.fillMaxSize()) {
+                com.example.myapplication.android.ui.screens.ShiftParticipantSelectionScreen(
+                    selectedDate = selectedPickerDate,
+                    onDateChange = { selectedPickerDate = it },
+                    shiftTemplate = template,
+                    allEmployees = allEmployees,
+                    onBack = { showParticipantPicker = false },
+                    onConfirm = { _, ids ->
+                        selectedEmployeeIds.clear()
+                        selectedEmployeeIds.addAll(ids)
+                        showParticipantPicker = false // torna al popup
+                    },
+                    events = emptyList(),                 // se vuoi, passami gli eventi per la preview
+                    initialSelectedUserIds = selectedEmployeeIds.toList()
                 )
             }
         }
     }
-}
-
-enum class EventVisibility {
-    PERSONALE,
-    PUBBLICO
 }

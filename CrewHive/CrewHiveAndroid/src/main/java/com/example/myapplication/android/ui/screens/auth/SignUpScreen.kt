@@ -1,13 +1,12 @@
+// FILE: SignUpScreen.kt
 package com.example.myapplication.android.ui.screens
 
+import android.util.Patterns
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.*
@@ -15,56 +14,91 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.myapplication.R
+import com.example.myapplication.android.ui.components.messages.TermsDialog
 import com.example.myapplication.android.ui.theme.CustomTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextFieldColors
+import com.example.myapplication.android.R as AR
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SignUpScreen(
     onSignUpClick: (email: String, username: String, password: String) -> Unit,
     onNavigateToSignIn: () -> Unit,
+    isLoading: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val colors = CustomTheme.colors
 
-    // Stati locali
     var email by remember { mutableStateOf("") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var agreedToTos by remember { mutableStateOf(false) }
+    var showTerms by remember { mutableStateOf(false) }
 
-    Box(modifier = modifier
-        .fillMaxSize()
-        .background(colors.background)) {
-        // === IMMAGINE DI SFONDO ===
-        val bgPainter: Painter = painterResource(id = com.example.myapplication.android.R.drawable.signup_bg)
+    // ---- VALIDAZIONI ----
+    val emailValid = Patterns.EMAIL_ADDRESS.matcher(email).matches()
+    val passLenOK = password.length >= 8
+    val passHasDigit = password.any { it.isDigit() }
+    val passHasUpper = password.any { it.isUpperCase() }
+    val passHasSpecial = password.any { !it.isLetterOrDigit() }
+    val passwordValid = passLenOK && passHasDigit && passHasUpper && passHasSpecial
+
+    val showEmailError = email.isNotBlank() && !emailValid
+    val showPasswordError = password.isNotBlank() && !passwordValid
+    val canContinue = agreedToTos && emailValid && passwordValid
+
+    val fieldShape = RoundedCornerShape(12.dp)
+
+    @Composable
+    fun inputColors(error: Boolean): TextFieldColors {
+        val borderFocused = if (error) MaterialTheme.colorScheme.error else colors.shade600
+        val borderUnfocused = if (error) MaterialTheme.colorScheme.error else colors.shade600.copy(alpha = 0.6f)
+        return OutlinedTextFieldDefaults.colors(
+            focusedContainerColor   = colors.background.copy(alpha = 0.96f),
+            unfocusedContainerColor = colors.background.copy(alpha = 0.92f),
+
+            focusedBorderColor   = borderFocused,
+            unfocusedBorderColor = borderUnfocused,
+
+            cursorColor = colors.shade900,
+
+            focusedTextColor   = colors.shade900,
+            unfocusedTextColor = colors.shade900,
+            focusedLabelColor   = colors.shade600,
+            unfocusedLabelColor = colors.shade600,
+            focusedPlaceholderColor   = colors.shade600.copy(alpha = 0.6f),
+            unfocusedPlaceholderColor = colors.shade600.copy(alpha = 0.6f),
+
+            errorContainerColor = colors.background.copy(alpha = 0.96f),
+        )
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(colors.background)
+    ) {
+        val bgPainter: Painter = painterResource(id = AR.drawable.signup_bg)
         Image(
             painter = bgPainter,
-            contentDescription = "Sign Up Background",
+            contentDescription = "Sfondo registrazione",
             modifier = Modifier.fillMaxSize(),
-            contentScale = androidx.compose.ui.layout.ContentScale.Crop
+            contentScale = ContentScale.Crop
         )
 
-        // === OVERLAY BIANCO SEMITRASPARENTE (OPZIONALE) ===
-        // Se vuoi rendere più leggibile il form, decommenta:
-
-//        Box(
-//            modifier = Modifier
-//                .fillMaxSize()
-//                .background(Color.White.copy(alpha = 0.3f))
-//        )
-
-
-        // === CONTENUTO CENTRALE ===
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -72,82 +106,99 @@ fun SignUpScreen(
                 .align(Alignment.Center),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // (Facoltativo) Logo in cima
-            // Image(painter = painterResource(id = R.drawable.ic_logo), contentDescription = "Logo", modifier = Modifier.size(80.dp))
             Spacer(modifier = Modifier.height(16.dp))
 
-            Row (modifier = Modifier.fillMaxWidth().align(Alignment.Start)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.Start)
+            ) {
                 Text(
-                    text = "Sign Up",
+                    text = "Registrati",
                     style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
                     color = colors.shade900
                 )
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            // === CAMPO EMAIL ===
+            // EMAIL
             OutlinedTextField(
                 value = email,
                 onValueChange = { email = it },
-                label = { Text(text = "Email", color = colors.shade600) },
-                placeholder = { Text(text = "Your email address") },
+                label = { Text("Email", color = colors.shade600) },
+                placeholder = { Text("La tua email") },
                 singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    cursorColor = colors.shade600,
-                    focusedBorderColor = colors.shade600,
-                    unfocusedBorderColor = colors.shade600,
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
+                supportingText = {
+                    if (showEmailError) {
+                        Text(
+                            "Inserisci un'email valida (es. nome@dominio.com)",
+                            color = MaterialTheme.colorScheme.error,
+                            fontSize = 12.sp
+                        )
+                    }
+                },
+                colors = inputColors(error = showEmailError),
+                shape = fieldShape,
+                enabled = !isLoading,
+                modifier = Modifier.fillMaxWidth()
             )
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // === CAMPO USERNAME ===
+            // USERNAME
             OutlinedTextField(
                 value = username,
                 onValueChange = { username = it },
-                label = { Text(text = "Username", color = colors.shade600) },
-                placeholder = { Text(text = "Choose a username") },
+                label = { Text("Username", color = colors.shade600) },
+                placeholder = { Text("Scegli uno username") },
                 singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                        cursorColor = colors.shade600,
-                        focusedBorderColor = colors.shade600,
-                        unfocusedBorderColor = colors.shade600,
-                    ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
+                enabled = !isLoading,
+                colors = inputColors(error = false),
+                shape = fieldShape,
+                modifier = Modifier.fillMaxWidth()
             )
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // === CAMPO PASSWORD ===
+            // PASSWORD
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text(text = "Password", color = colors.shade600) },
-                placeholder = { Text(text = "Your password") },
+                label = { Text("Password", color = colors.shade600) },
+                placeholder = { Text("La tua password") },
                 singleLine = true,
-                visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None
-                else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                enabled = !isLoading,
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {
-                    val img = if (passwordVisible) Icons.Default.KeyboardArrowDown else Icons.Default.KeyboardArrowUp
+                    val iconRes = if (passwordVisible) AR.drawable.hide else AR.drawable.eye
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                        Icon(imageVector = img, contentDescription = if (passwordVisible) "Hide password" else "Show password")
+                        Icon(
+                            painter = painterResource(iconRes),
+                            contentDescription = if (passwordVisible) "Nascondi password" else "Mostra password",
+                            modifier = Modifier.size(24.dp),
+                            tint = Color.Unspecified
+                        )
                     }
                 },
-                colors = OutlinedTextFieldDefaults.colors(
-                        cursorColor = colors.shade600,
-                        focusedBorderColor = colors.shade600,
-                        unfocusedBorderColor = colors.shade600,
-                    ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
+                supportingText = {
+                    if (showPasswordError) {
+                        Column {
+                            Text("La password deve contenere:", color = MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            Text("- almeno 8 caratteri", color = if (passLenOK) colors.shade600 else MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            Text("- almeno 1 numero", color = if (passHasDigit) colors.shade600 else MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            Text("- almeno 1 maiuscola", color = if (passHasUpper) colors.shade600 else MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                            Text("- almeno 1 carattere speciale", color = if (passHasSpecial) colors.shade600 else MaterialTheme.colorScheme.error, fontSize = 12.sp)
+                        }
+                    }
+                },
+                colors = inputColors(error = showPasswordError),
+                shape = fieldShape,
+                modifier = Modifier.fillMaxWidth()
             )
+
             Spacer(modifier = Modifier.height(8.dp))
 
-            // === CHECKBOX "I agree to the Terms of Services and Privacy Policy." ===
+            // TOS
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
@@ -158,71 +209,90 @@ fun SignUpScreen(
                     colors = CheckboxDefaults.colors(
                         checkedColor = colors.shade600,
                         uncheckedColor = colors.shade600,
-                        checkmarkColor = colors.shade600,
+                        checkmarkColor = Color.White
                     )
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-
-                // Costruiamo il testo con parti in rosso cliccabili
                 Text(
                     buildAnnotatedString {
-                        append("I agree to the ")
-                        withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, textDecoration = TextDecoration.Underline)) {
-                            append("Terms of Services")
-                        }
-                        append(" and ")
-                        withStyle(style = SpanStyle(color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold, textDecoration = TextDecoration.Underline)) {
-                            append("Privacy Policy")
-                        }
+                        append("Accetto i ")
+                        withStyle(
+                            style = SpanStyle(
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                                textDecoration = TextDecoration.Underline
+                            )
+                        ) { append("Termini di servizio") }
+                        append(" e l' ")
+                        withStyle(
+                            style = SpanStyle(
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.Bold,
+                                textDecoration = TextDecoration.Underline
+                            )
+                        ) { append("Informativa sulla privacy") }
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.shade600,
-                    modifier = Modifier.clickable {
-                        // Qui puoi aprire una finestra di dialogo o WebView per TOS/Privacy
-                    }
+                    modifier = Modifier.clickable { showTerms = true }
                 )
             }
+
             Spacer(modifier = Modifier.height(16.dp))
 
-            // === PULSANTE CONTINUE ===
+            // CONTINUA
             Button(
                 onClick = {
-                    if (agreedToTos) {
+                    if (canContinue) {
                         onSignUpClick(email.trim(), username.trim(), password)
-                    } else {
-                        // Puoi mostrare un Toast o Snackbar: “Devi accettare i Terms…”
                     }
                 },
-                enabled = agreedToTos, // disabilita il button se non ha spuntato la checkbox
+                enabled = canContinue && !isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = colors.shade600,
-                    disabledContainerColor = colors.shade600
+                    disabledContainerColor = colors.shade600.copy(alpha = 0.4f)
                 )
             ) {
-                Text(text = "Continue", color = colors.background, fontSize = 16.sp)
+                Text("Continua", color = colors.background, fontSize = 16.sp)
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // === Riga "Have an Account? Sign In" ===
+            // Link: Accedi
             Row {
                 Text(
-                    text = "Have an Account?",
+                    text = "Hai già un account?",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = "Sign In",
+                    text = "Accedi",
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
                     color = colors.shade600,
                     modifier = Modifier.clickable { onNavigateToSignIn() }
                 )
             }
         }
+    }
+
+
+    if (isLoading) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color(0x66000000)),
+            contentAlignment = Alignment.Center
+        ) {
+            CircularProgressIndicator()
+        }
+    }
+
+    if (showTerms) {
+        TermsDialog(onDismiss = { showTerms = false })
     }
 }

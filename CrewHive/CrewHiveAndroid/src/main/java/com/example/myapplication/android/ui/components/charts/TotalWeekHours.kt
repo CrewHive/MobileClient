@@ -16,34 +16,28 @@ import com.example.myapplication.android.ui.theme.CustomTheme
 object TotalWeekHoursComponent {
 
     @Composable
-    fun TotalWeekHours() {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            val colors = CustomTheme.colors
+    fun TotalWeekHours(current: Int, max: Int) {
+        val colors = CustomTheme.colors
+        val clamped = current.coerceAtLeast(0)
+        val progress = if (max > 0) {
+            (clamped.toFloat() / max.toFloat()).coerceIn(0f, 1f)
+        } else 0f
 
-            Text(
-                text = "Ore settimanali totali:",
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-                color = colors.shade950
-            )
-
-            Spacer(modifier = Modifier.height(25.dp))
-
-            Box (contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            Text("Ore settimanali totali:", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = colors.shade950)
+            Spacer(Modifier.height(25.dp))
+            Box(contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(
-                    progress = 27f / 40f,
+                    progress = progress,
                     strokeWidth = 20.dp,
                     color = colors.shade500,
                     strokeCap = StrokeCap.Round,
                     modifier = Modifier.size(160.dp)
                 )
-
-                Text("27/40 h", color = colors.shade950,fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                // sempre "lavorate/totali h" → quando max=0 diventa "0/0 h"
+                Text("${clamped}/${max.coerceAtLeast(0)} h",
+                    color = colors.shade950, fontSize = 20.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
-

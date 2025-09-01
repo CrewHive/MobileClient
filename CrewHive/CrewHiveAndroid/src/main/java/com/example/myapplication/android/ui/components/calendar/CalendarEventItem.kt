@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Face
@@ -14,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -29,12 +27,12 @@ fun CalendarEventItem(
     onDelete: (() -> Unit)? = null,
     onReport: (() -> Unit)? = null,
     onEdit: ((CalendarEvent) -> Unit)? = null
-
 ) {
     val colors = CustomTheme.colors
     var showDialog by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.clickable { showDialog = true }) {
+        // Barra laterale colorata
         Box(
             modifier = Modifier
                 .width(12.dp)
@@ -46,6 +44,8 @@ fun CalendarEventItem(
                 .align(Alignment.CenterStart)
                 .zIndex(1f)
         )
+
+        // Card
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -54,36 +54,20 @@ fun CalendarEventItem(
                 .background(Color.White, shape = RoundedCornerShape(8.dp))
                 .padding(20.dp, 8.dp, 6.dp, 6.dp)
         ) {
-            Column {
-                Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = event.title,
-                        fontSize = 16.sp,
-                        color = colors.shade950
-                    )
-                    if (event.participants.isEmpty()){
-                        Icon(
-                            imageVector = Icons.Default.Face,
-                            contentDescription = "Personal event",
-                            tint = colors.shade300,
-                            modifier = Modifier.padding(end = 2.dp)
-                        )
-                    }
-                }
+            Column(Modifier.fillMaxWidth()) {
+                Text(text = event.title, fontSize = 16.sp, color = colors.shade950)
+                Spacer(Modifier.height(2.dp))
                 Text(
                     text = "${event.startTime} - ${event.endTime}",
                     fontSize = 12.sp,
-                    color = colors.shade800.copy(alpha = 0.84f),
-                    fontWeight = FontWeight.Bold
+                    color = colors.shade800.copy(alpha = 0.84f)
                 )
-                Text(
-                    text = event.description,
-                    fontSize = 14.sp,
-                    color = Color.DarkGray
-                )
-
+                event.description?.takeIf { it.isNotBlank() }?.let {
+                    Spacer(Modifier.height(2.dp))
+                    Text(text = it, fontSize = 14.sp, color = Color.DarkGray)
+                }
                 if (showParticipants && event.participants.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         text = event.participants.joinToString(", "),
                         fontSize = 12.sp,
@@ -93,8 +77,22 @@ fun CalendarEventItem(
                 }
             }
         }
+
+        // Faccina OVERLAY in alto a destra SOLO per EVENT
+        if (event.kind == CalendarItemKind.EVENT) {
+            Icon(
+                imageVector = Icons.Default.Face,
+                contentDescription = "Personal event",
+                tint = colors.shade300,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .zIndex(2f)
+            )
+        }
     }
 
+    // Popup custom coerente con il resto dell’app
     if (showDialog) {
         Dialog(onDismissRequest = { showDialog = false }) {
             Surface(
@@ -106,61 +104,43 @@ fun CalendarEventItem(
                     .fillMaxWidth()
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Text(event.title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colors.shade950)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(event.title, fontSize = 20.sp, color = colors.shade950)
+                    Spacer(Modifier.height(8.dp))
                     Text("Orario: ${event.startTime} – ${event.endTime}", fontSize = 14.sp, color = Color.DarkGray)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("Descrizione: ${event.description}", fontSize = 14.sp, color = Color.DarkGray)
+                    event.description?.takeIf { it.isNotBlank() }?.let {
+                        Spacer(Modifier.height(4.dp))
+                        Text("Descrizione: $it", fontSize = 14.sp, color = Color.DarkGray)
+                    }
 
-                    if (showParticipants && event.participants.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Partecipanti:", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    if (showParticipants && event.participants.isNotEmpty() && event.kind == CalendarItemKind.SHIFT) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Partecipanti:", fontSize = 14.sp)
                         Text(event.participants.joinToString(", "), fontSize = 13.sp, color = colors.shade950)
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
+                    Spacer(Modifier.height(12.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        if (showParticipants || event.participants.isEmpty()) {
+                        // In lista “utente”: elimina/modifica per EVENT; in lista con partecipanti: anche per SHIFT
+                        if (showParticipants || (event.kind == CalendarItemKind.EVENT)) {
                             Button(
-                                onClick = {
-                                    onDelete?.invoke()
-                                    showDialog = false
-                                },
+                                onClick = { onDelete?.invoke(); showDialog = false },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD32F2F))
-                            ) {
-                                Text("Elimina", color = Color.White)
-                            }
+                            ) { Text("Elimina", color = Color.White) }
                         }
-                        if (showParticipants || event.participants.isEmpty()) {
+                        if (showParticipants || (event.kind == CalendarItemKind.EVENT)) {
                             Button(
-                                onClick = {
-                                    onEdit?.invoke(event)
-                                    showDialog = false
-                                },
+                                onClick = { onEdit?.invoke(event); showDialog = false },
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF388E3C))
-                            ) {
-                                Text("Modifica", color = Color.White)
-                            }
+                            ) { Text("Modifica", color = Color.White) }
                         }
-
-                        if (!showParticipants && event.participants.isNotEmpty()) {
-                            Button(
-                                onClick = {
-                                    onReport?.invoke()
-                                    showDialog = false
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
-                            ) {
-                                Text("Report", color = Color.White)
-                            }
-                        }
-
-//                        OutlinedButton(onClick = { showDialog = false }) {
-//                            Text("Chiudi")
+//                        if (!showParticipants && event.kind == CalendarItemKind.SHIFT) {
+//                            Button(
+//                                onClick = { onReport?.invoke(); showDialog = false },
+//                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1976D2))
+//                            ) { Text("Report", color = Color.White) }
 //                        }
                     }
                 }

@@ -166,7 +166,9 @@ fun MonthlyCalendarGridViewPreview() {
                 set(Calendar.YEAR, 2025)
                 set(Calendar.MONTH, Calendar.MAY)
                 set(Calendar.DAY_OF_MONTH, 15)
-            }
+            },
+            id = TODO(),
+            participants = TODO()
         ),
         CalendarEvent(
             startTime = "14:00",
@@ -178,7 +180,9 @@ fun MonthlyCalendarGridViewPreview() {
                 set(Calendar.YEAR, 2025)
                 set(Calendar.MONTH, Calendar.MAY)
                 set(Calendar.DAY_OF_MONTH, 18)
-            }
+            },
+            id = TODO(),
+            participants = TODO()
         )
     )
 

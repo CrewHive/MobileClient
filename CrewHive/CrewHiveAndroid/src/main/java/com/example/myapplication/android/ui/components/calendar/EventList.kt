@@ -17,16 +17,20 @@ import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.Alignment
 
+enum class CalendarItemKind { EVENT, SHIFT }
+
 data class CalendarEvent(
+    val id: Long,
     val startTime: String,
     val endTime: String,
     val title: String,
-    val description: String,
+    val description: String?,
     val color: Color,
     val date: Calendar,
-    val participants: List<String> = emptyList()
+    val participants: List<String> = emptyList(),
+    val kind: CalendarItemKind = CalendarItemKind.EVENT,
+    val companyId: Long? = null
 )
-
 
 data class PositionedEvent(
     val event: CalendarEvent,
@@ -34,8 +38,9 @@ data class PositionedEvent(
     val totalColumns: Int
 )
 
-private val hourRange = 6..22
+private val hourRange = 1..24
 private val hourHeight = 58.dp
+
 
 @SuppressLint("UnusedBoxWithConstraintsScope")
 @Composable
@@ -106,6 +111,12 @@ fun EventList(
                     val columnWidth = containerWidth / positioned.totalColumns
                     val xOffsetPx = positioned.columnIndex * columnWidth
                     val xOffset = with(density) { xOffsetPx.toDp() }
+                    val event = positioned.event
+
+                    val showBadge =
+                        showParticipants &&
+                                event.kind == CalendarItemKind.SHIFT &&
+                                (event.participants.size) > 1
 
                     Box(
                         modifier = Modifier
@@ -129,7 +140,6 @@ fun EventList(
     }
 }
 
-
 fun resolveEventPositionsWithGrouping(events: List<CalendarEvent>): List<PositionedEvent> {
     val visited = mutableSetOf<CalendarEvent>()
     val result = mutableListOf<PositionedEvent>()
@@ -140,7 +150,6 @@ fun resolveEventPositionsWithGrouping(events: List<CalendarEvent>): List<Positio
         val group = mutableListOf<CalendarEvent>()
         collectConnectedEvents(event, events, visited, group)
 
-        // Calcolo colonne per questo gruppo
         val groupWindows = group.map { it to calculateTimeWindow(it) }
             .sortedBy { it.second.first }
 
@@ -152,7 +161,7 @@ fun resolveEventPositionsWithGrouping(events: List<CalendarEvent>): List<Positio
             for ((colIdx, col) in columns.withIndex()) {
                 if (col.none { overlap(it.second, window) }) {
                     col.add(e to window)
-                    result.add(PositionedEvent(e, colIdx, 0)) // temp totalColumns
+                    result.add(PositionedEvent(e, colIdx, 0))
                     placed = true
                     break
                 }
@@ -164,11 +173,8 @@ fun resolveEventPositionsWithGrouping(events: List<CalendarEvent>): List<Positio
             }
         }
 
-        // Ora correggo totalColumns per tutti gli eventi del gruppo
         result.replaceAll { positioned ->
-            if (group.contains(positioned.event)) {
-                positioned.copy(totalColumns = columns.size)
-            } else positioned
+            if (group.contains(positioned.event)) positioned.copy(totalColumns = columns.size) else positioned
         }
     }
 
@@ -183,7 +189,6 @@ private fun collectConnectedEvents(
 ) {
     visited.add(current)
     group.add(current)
-
     for (other in all) {
         if (!visited.contains(other) && overlap(current, other)) {
             collectConnectedEvents(other, all, visited, group)
@@ -198,13 +203,11 @@ fun calculateDuration(event: CalendarEvent): Pair<Int, Float> {
         val end = format.parse(event.endTime)
         val startCal = Calendar.getInstance().apply { time = start!! }
         val endCal = Calendar.getInstance().apply { time = end!! }
-
         val startMinutes = startCal.get(Calendar.HOUR_OF_DAY) * 60 + startCal.get(Calendar.MINUTE)
         val endMinutes = endCal.get(Calendar.HOUR_OF_DAY) * 60 + endCal.get(Calendar.MINUTE)
-
         val duration = (endMinutes - startMinutes).coerceAtLeast(15)
         startMinutes to duration.toFloat()
-    } catch (e: Exception) {
+    } catch (_: Exception) {
         0 to 60f
     }
 }
